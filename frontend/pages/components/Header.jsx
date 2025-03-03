@@ -22,7 +22,8 @@ import {
   useDisclosure,
   Avatar,
   Flex,
-  Text
+  Text,
+  HStack
 } from "@chakra-ui/react";
 import { TriangleDownIcon } from "@chakra-ui/icons";
 import SearchIconBlack from "../../images/commonicons/searchiconblack.svg";
@@ -47,8 +48,19 @@ function Header() {
     expires: ''
   })
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const { 
+    isOpen: isRegisterOpen, 
+    onOpen: onRegisterOpen, 
+    onClose: onRegisterClose 
+  } = useDisclosure()
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
+  // Registration form states
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerUsername, setRegisterUsername] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
 
   useEffect(() => {
     if(document.getElementById("header_common_thing_playbutton")){
@@ -113,6 +125,49 @@ function Header() {
     } catch (error) {
       console.error('Login error:', error);
       alert('Error connecting to server');
+    }
+  };
+
+  // Handle register functionality
+  const handleRegister = async () => {
+    if (registerPassword !== registerConfirmPassword) {
+      alert('Mật khẩu xác nhận không khớp');
+      return;
+    }
+    
+    try {
+      // Send request to Django backend for registration
+      const response = await fetch('http://localhost:8000/api/register/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          username: registerUsername,
+          email: registerEmail,
+          password: registerPassword 
+        }),
+      });
+
+      const data = await response.json();
+     
+      if (response.ok) {
+        alert('Đăng ký thành công! Vui lòng đăng nhập.');
+        onRegisterClose();
+        onOpen(); // Open login modal after successful registration
+        
+        // Clear registration form
+        setRegisterEmail('');
+        setRegisterUsername('');
+        setRegisterPassword('');
+        setRegisterConfirmPassword('');
+      } else {
+        alert('Đăng ký thất bại: ' + (data.detail || 'Unknown error'));
+      }
+      
+    } catch (error) {
+      console.error('Registration error:', error);
+      alert('Lỗi kết nối đến máy chủ');
     }
   };
 
@@ -344,18 +399,31 @@ function Header() {
             </MenuList>
           </Menu>
         ) : (
-          // Show login button when not logged in
-          <Button 
-            onClick={onOpen}
-            bg="white" 
-            color="black"
-            _hover={{ bg: "#f8f8f8" }}
-            borderRadius="full"
-            size="sm"
-            px={4}
-          >
-            Log in
-          </Button>
+          // Show login and register buttons when not logged in
+          <HStack spacing={4}>
+            <Button 
+              onClick={onOpen}
+              bg="white" 
+              color="black"
+              _hover={{ bg: "#f8f8f8" }}
+              borderRadius="full"
+              size="sm"
+              px={4}
+            >
+              Log in
+            </Button>
+            <Button 
+              onClick={onRegisterOpen}
+              bg="white" 
+              color="black"
+              _hover={{ bg: "#f8f8f8" }}
+              borderRadius="full"
+              size="sm"
+              px={4}
+            >
+              Register
+            </Button>
+          </HStack>
         )}
 
         {/* Login Modal */}
@@ -390,6 +458,61 @@ function Header() {
                 Login
               </Button>
               <Button onClick={onClose} variant="ghost">Cancel</Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        {/* Register Modal */}
+        <Modal isOpen={isRegisterOpen} onClose={onRegisterClose}>
+          <ModalOverlay />
+          <ModalContent bg="#282828" color="white">
+            <ModalHeader>Register to Spotify</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody pb={6}>
+              <FormControl>
+                <FormLabel>Email</FormLabel>
+                <Input 
+                  placeholder="Email" 
+                  value={registerEmail}
+                  onChange={(e) => setRegisterEmail(e.target.value)}
+                />
+              </FormControl>
+
+              <FormControl mt={4}>
+                <FormLabel>Username</FormLabel>
+                <Input 
+                  placeholder="Username" 
+                  value={registerUsername}
+                  onChange={(e) => setRegisterUsername(e.target.value)}
+                />
+              </FormControl>
+
+              <FormControl mt={4}>
+                <FormLabel>Password</FormLabel>
+                <Input 
+                  type="password" 
+                  placeholder="Password"
+                  value={registerPassword}
+                  onChange={(e) => setRegisterPassword(e.target.value)}
+                />
+              </FormControl>
+
+              <FormControl mt={4}>
+                <FormLabel>Confirm Password</FormLabel>
+                <Input 
+                  type="password" 
+                  placeholder="Confirm Password"
+                  value={registerConfirmPassword}
+                  onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+                />
+              </FormControl>
+            </ModalBody>
+
+            <ModalFooter>
+              <Button colorScheme="green" mr={3} onClick={handleRegister}>
+                Register
+              </Button>
+              <Button onClick={onRegisterClose} variant="ghost">Cancel</Button>
             </ModalFooter>
           </ModalContent>
         </Modal>
