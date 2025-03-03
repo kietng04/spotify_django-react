@@ -1,4 +1,3 @@
-version: '3'
 
 services:
   db:
@@ -17,8 +16,8 @@ services:
       timeout: 5s
       retries: 5
 
-  web:
-    build: .
+  backend:
+    build: ./Django
     restart: always
     depends_on:
       db:
@@ -30,6 +29,19 @@ services:
       - DATABASE_NAME=spotify
       - DATABASE_USER=root
       - DATABASE_PASSWORD=
+    volumes:
+      - ./Django:/app
+
+  frontend:
+    build: ./frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
 volumes:
   mysql_data:

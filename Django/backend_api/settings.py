@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'api',
+    'corsheaders',
 ]
 
 REST_FRAMEWORK = {
@@ -53,6 +54,8 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -81,7 +84,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backend_api.wsgi.application'
-
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -143,6 +145,9 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTHENTICATION_BACKENDS = [
-    'api.auth.CustomAuthBackend',
     'django.contrib.auth.backends.ModelBackend',  
 ]
+
+AUTH_USER_MODEL = 'api.MyUser'
+
+CORS_ALLOW_ALL_ORIGINS = True
