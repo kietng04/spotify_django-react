@@ -128,7 +128,6 @@ function Header() {
     }
   };
 
-  // Handle register functionality
   const handleRegister = async () => {
     if (registerPassword !== registerConfirmPassword) {
       alert('Mật khẩu xác nhận không khớp');
@@ -136,8 +135,7 @@ function Header() {
     }
     
     try {
-      // Send request to Django backend for registration
-      const response = await fetch('http://localhost:8000/api/register/', {
+      const response = await fetch('http://localhost:8000/api/users/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -150,19 +148,16 @@ function Header() {
       });
 
       const data = await response.json();
-     
+
+      alert(JSON.stringify(data));
+      
       if (response.ok) {
-        alert('Đăng ký thành công! Vui lòng đăng nhập.');
         onRegisterClose();
-        onOpen(); // Open login modal after successful registration
         
-        // Clear registration form
         setRegisterEmail('');
         setRegisterUsername('');
         setRegisterPassword('');
         setRegisterConfirmPassword('');
-      } else {
-        alert('Đăng ký thất bại: ' + (data.detail || 'Unknown error'));
       }
       
     } catch (error) {
