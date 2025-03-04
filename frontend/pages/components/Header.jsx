@@ -33,7 +33,13 @@ import PauseIcon from "../../images/commonicons/pauseicon.svg";
 import { playPauseAction } from "../../lib/tools";
 import { useRecoilValue } from "recoil";
 import { searchValue } from "../../atoms/searchAtom";
+import { FaGoogle } from "react-icons/fa";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
+
+  const callApi = async () => {
+
+  };
 function Header() {
   let router = useRouter();
   let {id} = router.query
@@ -105,7 +111,8 @@ function Header() {
           username: data.username,
           user_id: data.user_id,
           token: data.token,
-          expires: data.expires
+          expires: data.expires,
+          avatarImg: data.avatarImg || user.photoURL
         });
         
         localStorage.setItem('spotify_token', data.token);
@@ -113,7 +120,8 @@ function Header() {
           username: data.username,
           user_id: data.user_id,
           token: data.token,
-          expires: data.expires
+          expires: data.expires,
+          avatarImg: data.avatarImg || user.photoURL
         }));
         
         setIsLoggedIn(true);
@@ -128,6 +136,91 @@ function Header() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    const auth = getAuth();
+    signInWithPopup(auth, provider)
+    .then(async (result) => {
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const token = credential.accessToken;
+      const user = result.user;
+  
+      try {
+        const response = await fetch('http://localhost:8000/api/google-auth/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: user.email,
+            username: user.displayName || user.email.split('@')[0],
+            displayname: user.displayName,
+            photoURL: user.photoURL,
+          }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Uncomment the following code to save user data
+          setUserData({
+            username: data.username,
+            user_id: data.user_id,
+            token: data.token,
+            expires: data.expires,
+            avatarImg: data.avatarImg || user.photoURL
+          });
+          
+          localStorage.setItem('spotify_token', data.token);
+          localStorage.setItem('spotify_user', JSON.stringify({
+            username: data.username,
+            user_id: data.user_id,
+            token: data.token,
+            expires: data.expires,
+            avatarImg: data.avatarImg || user.photoURL
+          }));
+          
+          setIsLoggedIn(true);
+          onClose();
+          
+          console.log("Login success:", data);
+          // set image to user photoURL
+          
+        } else {
+          console.error('Login failed:', data);
+          alert('Login failed: ' + (data.error || 'Unknown error'));
+        }
+        
+      } catch (error) {
+        console.error("Backend authentication error:", error);
+        setUserData({
+          username: user.displayName || user.email.split('@')[0],
+          user_id: user.uid,
+          token: token,
+          expires: new Date(Date.now() + 24*60*60*1000).toISOString()
+        });
+        
+        localStorage.setItem('spotify_token', token);
+        localStorage.setItem('spotify_user', JSON.stringify({
+          username: user.displayName || user.email.split('@')[0],
+          user_id: user.uid,
+          token: token, 
+          expires: new Date(Date.now() + 24*60*60*1000).toISOString(),
+          avatarImg: user.photoURL
+        }));
+        
+        setIsLoggedIn(true);
+        onClose();
+        alert("Server error, but logged in with Google credentials");
+      }
+    })
+    .catch((error) => {
+      console.error("Google authentication error:", error);
+      alert("Google login failed: " + error.message);
+    });
+  };
+
+  
   const handleRegister = async () => {
     if (registerPassword !== registerConfirmPassword) {
       alert('Mật khẩu xác nhận không khớp');
@@ -347,12 +440,12 @@ function Header() {
               minW={0}
             >
               <Flex alignItems="center">
-                <Avatar 
-                  size="sm"
-                  name={getInitials(userData.username)}
-                  src={DummyProfile.src}
-                  bg="green.500"
-                />
+              <Avatar 
+                size="sm"
+                name={getInitials(userData.username)}
+                src={userData.avatarImg || DummyProfile.src} 
+                bg="green.500"
+              />
                 <Text 
                   color="white" 
                   ml={2} 
@@ -428,6 +521,18 @@ function Header() {
             <ModalHeader>Login to Spotify</ModalHeader>
             <ModalCloseButton />
             <ModalBody pb={6}>
+              {/* Google Sign-in Button */}
+              <Button 
+                w="100%"
+                leftIcon={<FaGoogle />}
+                onClick={handleGoogleLogin}
+                mb={4}
+                variant="outline"
+                colorScheme="red"
+              >
+                Continue with Google
+              </Button>
+
               <FormControl>
                 <FormLabel>Email</FormLabel>
                 <Input 
@@ -514,6 +619,7 @@ function Header() {
       </div>
     </header>
   );
+  
 }
 
 export default Header;

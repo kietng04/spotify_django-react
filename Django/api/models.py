@@ -31,3 +31,122 @@ class UserToken(models.Model):
     @property
     def is_expired(self):
         return timezone.now() >= self.expires
+
+class Artist(models.Model):
+    name = models.CharField(max_length=255)
+    bio = models.TextField(blank=True, null=True)
+    image_url = models.URLField(blank=True, null=True)
+    spotify_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
+    followers = models.IntegerField(default=0)
+    popularity = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.name
+
+class Genre(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    
+    def __str__(self):
+        return self.name
+
+class Album(models.Model):
+    ALBUM_TYPE_CHOICES = (
+        ('album', 'Album'),
+        ('single', 'Single'),
+        ('ep', 'EP'),
+        ('compilation', 'Compilation'),
+    )
+    
+    title = models.CharField(max_length=255)
+    artists = models.ManyToManyField(Artist, related_name='albums')
+    cover_image_url = models.URLField(blank=True, null=True)
+    release_date = models.DateField()
+    spotify_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
+    album_type = models.CharField(max_length=20, choices=ALBUM_TYPE_CHOICES, default='album')
+    total_tracks = models.IntegerField(default=0)
+    popularity = models.IntegerField(default=0)
+    genres = models.ManyToManyField(Genre, related_name='albums', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.title
+
+class Track(models.Model):
+    title = models.CharField(max_length=255)
+    artists = models.ManyToManyField(Artist, related_name='tracks')
+    album = models.ForeignKey(Album, on_delete=models.CASCADE, related_name='tracks')
+    uri = models.URLField(help_text="URI đến file MP3 trên AWS S3")
+    duration_ms = models.IntegerField()
+    track_number = models.IntegerField()
+    disc_number = models.IntegerField(default=1)
+    explicit = models.BooleanField(default=False)
+    popularity = models.IntegerField(default=0)
+    spotify_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
+    preview_url = models.URLField(blank=True, null=True)
+    genres = models.ManyToManyField(Genre, related_name='tracks', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.title
+
+class Playlist(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    cover_image_url = models.URLField(blank=True, null=True)
+    creator = models.ForeignKey(MyUser, on_delete=models.CASCADE, related_name='playlists')
+    tracks = models.ManyToManyField(Track, through='PlaylistTrack', related_name='playlists')
+    is_public = models.BooleanField(default=True)
+    followers_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.name
+
+class PlaylistTrack(models.Model):
+    playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE)
+    track = models.ForeignKey(Track, on_delete=models.CASCADE)
+    added_at = models.DateTimeField(auto_now_add=True)
+    added_by = models.ForeignKey(MyUser, on_delete=models.SET_NULL, null=True)
+    position = models.IntegerField(default=0)
+    
+    class Meta:
+        ordering = ['position']
+        unique_together = ['playlist', 'track']
+
+class UserLikedTrack(models.Model):
+    user = models.ForeignKey(MyUser, on_delete=models.CASCADE, related_name='liked_tracks')
+    track = models.ForeignKey(Track, on_delete=models.CASCADE, related_name='liked_by')
+    added_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['user', 'track']
+
+class UserFollowedPlaylist(models.Model):
+    user = models.ForeignKey(MyUser, on_delete=models.CASCADE, related_name='followed_playlists')
+    playlist = models.ForeignKey(Playlist, on_delete=models.CASCADE, related_name='followers')
+    added_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['user', 'playlist']
+
+class UserFollowedArtist(models.Model):
+    user = models.ForeignKey(MyUser, on_delete=models.CASCADE, related_name='followed_artists')
+    artist = models.ForeignKey(Artist, on_delete=models.CASCADE, related_name='follower_users')
+    added_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['user', 'artist']
+
+class TrackPlay(models.Model):
+    user = models.ForeignKey(MyUser, on_delete=models.CASCADE, related_name='play_history')
+    track = models.ForeignKey(Track, on_delete=models.CASCADE, related_name='play_history')
+    played_at = models.DateTimeField(auto_now_add=True)
+    duration_played_ms = models.IntegerField(default=0)
+    
+    def __str__(self):
+        return f"{self.user.username} played {self.track.title}"
