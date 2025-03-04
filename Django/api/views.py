@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import MyUser, UserToken
-from .serializers import UserSerializer
+from .models import MyUser, UserToken, Track
+from .serializers import UserSerializer, SimpleTrackSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -100,3 +100,11 @@ class LoginWithGoogleView(APIView):
             'avatarImg': user.avatarImg.url if user.avatarImg else None,
             'expires': token.expires
         })
+
+class RandomTracksView(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        tracks = Track.objects.select_related('album').prefetch_related('artists').order_by('?')[:6]
+        serializer = SimpleTrackSerializer(tracks, many=True)
+        return Response(serializer.data)
