@@ -8,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import authenticate
 from django.utils import timezone
+from .utils.s3_utils import generate_presigned_url
+from django.http import Http404, JsonResponse
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = MyUser.objects.all()
@@ -108,3 +110,57 @@ class RandomTracksView(APIView):
         tracks = Track.objects.select_related('album').prefetch_related('artists').order_by('?')[:6]
         serializer = SimpleTrackSerializer(tracks, many=True)
         return Response(serializer.data)
+    
+class StreamAudioView(APIView):
+    permission_classes = [AllowAny]  # Changed from IsAuthenticated for testing
+    
+    def get(self, request, track_id):
+        try:
+            # Get the track from database
+            track = Track.objects.get(id=track_id)
+            
+            # Debug logging
+            print(f"Track URI from DB: {track.uri}")
+            
+            # Use the URI directly as the S3 key - don't add .mp3 extension
+            s3_key = track.uri
+            
+            # Strip any protocol and domain if present
+            if '://' in s3_key:
+                s3_key = s3_key.split('://', 1)[1]
+                if '/' in s3_key:
+                    s3_key = s3_key.split('/', 1)[1]
+                
+            print(f"Extracted S3 Key: {s3_key}")
+            
+            # Generate a pre-signed URL
+            presigned_url = generate_presigned_url(
+                s3_key=s3_key,
+                expiration=3600
+            )
+            
+            if not presigned_url:
+                print("Failed to generate presigned URL")
+                return Response({"error": "Could not generate streaming URL"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            print(f"Generated presigned URL: {presigned_url}")
+                
+            return Response({
+                "stream_url": presigned_url,
+                "track_details": {
+                    "id": track.id,
+                    "title": track.title,
+                    "artist": ", ".join([artist.name for artist in track.artists.all()]),
+                    "album": track.album.title,
+                    "duration_ms": track.duration_ms,
+                    "cover_image": track.album.cover_image_url if hasattr(track.album, 'cover_image_url') else None
+                }
+            })
+            
+        except Track.DoesNotExist:
+            return Response({"error": "Track not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            import traceback
+            print(f"Error in StreamAudioView: {str(e)}")
+            print(traceback.format_exc())
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

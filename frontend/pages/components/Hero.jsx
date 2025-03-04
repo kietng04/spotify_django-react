@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import DummyMusicThumb1 from "../../images/commonimages/dummymusicthumb1.jpeg";
 import DummyMusicThumb2 from "../../images/commonimages/dummymusicthumb2.jpeg";
@@ -22,6 +22,16 @@ function Hero() {
   const [heroMusicData, setHeroMusicData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [averageColor, setAverageColor] = useState("");
+  const [currentPlayingId, setCurrentPlayingId] = useState(null);
+  const audioRef = useRef(null);
+  
+  // Initialize the Audio object on client-side only
+  useEffect(() => {
+    // Only create Audio instance in browser environment
+    if (typeof window !== 'undefined') {
+      audioRef.current = new Audio();
+    }
+  }, []);
   
   // Fallback dummy data in case API fails
   const dummyMusicData = [
@@ -84,6 +94,41 @@ function Hero() {
     fetchRandomTracks();
   }, []);
 
+  // New function to play/pause tracks
+  const playTrack = async (trackId, buttonElement) => {
+    // Make sure audio is initialized
+    if (!audioRef.current) return;
+    
+    try {
+      // If already playing this track, just pause it
+      if (currentPlayingId === trackId && !audioRef.current.paused) {
+        audioRef.current.pause();
+        setCurrentPlayingId(null);
+        return;
+      }
+      
+      // Stop any currently playing track
+      audioRef.current.pause();
+      
+      // Fetch stream URL from API
+      const response = await fetch(`http://localhost:8000/api/stream/${trackId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch stream URL');
+      }
+      
+      const data = await response.json();
+      
+      // Set new audio source and play
+      audioRef.current.src = data.stream_url;
+      audioRef.current.play();
+      setCurrentPlayingId(trackId);
+      
+    } catch (error) {
+      console.error('Error playing track:', error);
+      alert('Error playing track. Please try again.');
+    }
+  };
+
   // Define the greeting message based on the current time of the day
   useEffect(() => {
     greetingMessageShow();
@@ -138,6 +183,7 @@ function Hero() {
               return (
                 <div
                   key={data.name + index}
+                  data-track-id={data.id} // Add track ID as data attribute
                   onMouseEnter={() =>
                     data.thumbnail && typeof data.thumbnail === 'string' 
                       ? getImageAverageColor(data.thumbnail, setAverageColor)
@@ -174,10 +220,13 @@ function Hero() {
                       </p>
                     )}
                   </div>
-                  <button className="h-12 shadow-lg shadow-black/50 flex items-center opacity-0  transition-opacity card-play-button justify-center w-12 bg-[#1DDF62] rounded-full absolute right-4">
+                  <button className="h-12 shadow-lg shadow-black/50 flex items-center opacity-0 transition-opacity card-play-button justify-center w-12 bg-[#1DDF62] rounded-full absolute right-4">
                     <Image
-                      src={PlayIcon}
+                      src={currentPlayingId === data.id ? PauseIcon : PlayIcon}
                       onClick={(e) => {
+                        // Use the track ID to play/pause music
+                        playTrack(data.id, e.target);
+                        
                         playPauseAction(
                           e.target,
                           PlayIcon,
@@ -190,6 +239,7 @@ function Hero() {
                       width={19}
                       alt="play pause icon black"
                       className="play_button"
+                      data-track-id={data.id}
                     />
                   </button>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import LeftArrow from "../../images/commonicons/leftarrow.svg";
 import RightArrow from "../../images/commonicons/rightarrow.svg";
 import DummyProfile from "../../images/commonimages/dummyprofile.jpeg";
@@ -23,9 +23,22 @@ import {
   Avatar,
   Flex,
   Text,
-  HStack
+  HStack,
+  Box,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverHeader,
+  PopoverBody,
+  PopoverArrow,
+  PopoverCloseButton,
+  List,
+  ListItem,
+  Link,
+  Divider,
+  Icon
 } from "@chakra-ui/react";
-import { TriangleDownIcon } from "@chakra-ui/icons";
+import { TriangleDownIcon, MusicNoteIcon, BellIcon } from "@chakra-ui/icons";
 import SearchIconBlack from "../../images/commonicons/searchiconblack.svg";
 import { useRouter } from "next/router";
 import PlayIcon from "../../images/commonicons/playicon.svg";
@@ -33,13 +46,14 @@ import PauseIcon from "../../images/commonicons/pauseicon.svg";
 import { playPauseAction } from "../../lib/tools";
 import { useRecoilValue } from "recoil";
 import { searchValue } from "../../atoms/searchAtom";
-import { FaGoogle } from "react-icons/fa";
+import { FaGoogle, FaMusic, FaPlay, FaPause } from "react-icons/fa";
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 
-  const callApi = async () => {
+const callApi = async () => {
+  // This function is now replaced with specific API call functions
+};
 
-  };
 function Header() {
   let router = useRouter();
   let {id} = router.query
@@ -53,6 +67,18 @@ function Header() {
     token: '',
     expires: ''
   })
+  const [randomTracks, setRandomTracks] = useState([]);
+  const [isLoadingTracks, setIsLoadingTracks] = useState(false);
+  const [currentPlayingId, setCurrentPlayingId] = useState(null);
+  const audioRef = useRef(null);
+  
+  // Initialize audio on client-side only
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      audioRef.current = new Audio();
+    }
+  }, []);
+  
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { 
     isOpen: isRegisterOpen, 
@@ -68,11 +94,73 @@ function Header() {
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
 
+  // Function to fetch random tracks
+  const fetchRandomTracks = async () => {
+    setIsLoadingTracks(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/random-tracks/');
+      if (!response.ok) {
+        throw new Error('Failed to fetch random tracks');
+      }
+      const data = await response.json();
+      setRandomTracks(data);
+    } catch (error) {
+      console.error('Error fetching random tracks:', error);
+    } finally {
+      setIsLoadingTracks(false);
+    }
+  };
+
+  // Play track function for Header component
+  const playTrackFromHeader = async (trackId) => {
+    // Make sure audio is initialized
+    if (!audioRef.current) return;
+    
+    try {
+      // If already playing this track, just pause it
+      if (currentPlayingId === trackId && !audioRef.current.paused) {
+        audioRef.current.pause();
+        setCurrentPlayingId(null);
+        return;
+      }
+      
+      // Stop any currently playing track
+      audioRef.current.pause();
+      
+      // Fetch stream URL from API
+      const response = await fetch(`http://localhost:8000/api/stream/${trackId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch stream URL');
+      }
+      
+      const data = await response.json();
+      
+      // Set new audio source and play
+      audioRef.current.src = data.stream_url;
+      audioRef.current.play();
+      setCurrentPlayingId(trackId);
+      
+    } catch (error) {
+      console.error('Error playing track:', error);
+      alert('Error playing track. Please try again.');
+    }
+  };
+
+  // Format duration from milliseconds to minutes:seconds
+  const formatDuration = (ms) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = ((ms % 60000) / 1000).toFixed(0);
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
   useEffect(() => {
     if(document.getElementById("header_common_thing_playbutton")){
       document.getElementById("header_common_thing_playbutton").src =
       PlayIcon.src;
     }
+    
+    // Fetch random tracks when component mounts
+    fetchRandomTracks();
   }, []);
 
   useEffect(() => {
@@ -617,6 +705,51 @@ function Header() {
           </ModalContent>
         </Modal>
       </div>
+
+      {/* Random Tracks Popover */}
+      <Popover>
+        <PopoverTrigger>
+          <Button 
+            leftIcon={<FaMusic />} 
+            colorScheme="teal" 
+            variant="outline"
+            ml={4}
+          >
+            Random Tracks
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent>
+          <PopoverArrow />
+          <PopoverCloseButton />
+          <PopoverHeader>Random Tracks</PopoverHeader>
+          <PopoverBody>
+            {isLoadingTracks ? (
+              <Text>Loading...</Text>
+            ) : (
+              <List spacing={3}>
+                {randomTracks.map((track) => (
+                  <ListItem key={track.id} display="flex" justifyContent="space-between" alignItems="center">
+                    <Text>
+                      <b>{track.title}</b> - {track.artists && track.artists.length > 0 ? track.artists[0].name : "Unknown Artist"}
+                      <Text fontSize="sm" color="gray.500">
+                        {formatDuration(track.duration_ms)}
+                      </Text>
+                    </Text>
+                    <Button 
+                      colorScheme="green" 
+                      size="sm" 
+                      onClick={() => playTrackFromHeader(track.id)}
+                      leftIcon={currentPlayingId === track.id ? <Icon as={FaPause} /> : <Icon as={FaPlay} />}
+                    >
+                      {currentPlayingId === track.id ? 'Pause' : 'Play'}
+                    </Button>
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </PopoverBody>
+        </PopoverContent>
+      </Popover>
     </header>
   );
   
