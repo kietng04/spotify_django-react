@@ -20,11 +20,20 @@ import MuteIcon from "../../images/commonicons/muteicon.svg";
 import FullScreenIcon from "../../images/commonicons/fullscreenicon.svg";
 import { playPauseAction } from "../../lib/tools";
 import progressAndSoundBarAction from "../../lib/progressAndSoundBarAction";
+import { useTrack } from "../../context/TrackContext";
 
 function PlayerSection() {
-  let [isLiked, setIsLiked] = useState(false);
-  let [isRepeat, setIsRepeat] = useState(false);
-  let [isShuffle, setIsShuffle] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isRepeat, setIsRepeat] = useState(false);
+  const [isShuffle, setIsShuffle] = useState(false);
+  
+  const { 
+    currentTrack, 
+    isPlaying, 
+    togglePlayPause, 
+    playNextTrack, 
+    playPreviousTrack 
+  } = useTrack();
 
   useEffect(() => {
     progressAndSoundBarAction.init(
@@ -35,44 +44,72 @@ function PlayerSection() {
     );
   }, []);
 
+  // Reset liked status when track changes
+  useEffect(() => {
+    setIsLiked(false);
+  }, [currentTrack?.id]);
+
+  const handlePlayPause = () => {
+    togglePlayPause();
+    
+    // Update the play icon visually
+    const playerSectionPlayIcon = document.getElementById("player_section_playicon");
+    if (playerSectionPlayIcon) {
+      playerSectionPlayIcon.src = isPlaying ? PlayIcon.src : PauseIcon.src;
+    }
+  };
+
   return (
     <div
       id="player_section"
-      className="h-24 z-[100] bg-[#181919] border-t border-t-[#292928] overflow-scroll flex  lg:w-full w-[850px] fixed bottom-0 left-0"
+      className="h-24 z-[100] bg-[#181919] border-t border-t-[#292928] overflow-scroll flex lg:w-full w-[850px] fixed bottom-0 left-0"
     >
+      {/* Hidden audio element - managed by TrackContext */}
       <div className="hidden">
-        <audio id="player_audio" src="https://naathamd.com/wp-content/uploads/dlm_uploads/2020/05/The-Beauty-of-Existence.mp3?_=1"></audio>
+        <audio id="player_audio"></audio>
       </div>
 
-      <div className="w-[30%] md:flex h-full px-6 py-4  hidden">
-        <Image
-          src={DummyMusicThumb}
-          alt="Dummy music thumb"
-          priority={true}
-          className="h-full w-fit"
-        />
-        <div className="w-full h-full flex flex-col justify-center ml-4">
-          <h1 className="text-sm font-book text-white hover:underline cursor-pointer">
-            The Beauty of Existence
-          </h1>
-          <h1 className="text-xs text-[#B2B3B2] mt-1">
-            <span className="hover:text-white hover:underline cursor-pointer font-book">
-              Muhammed Al Muqit
-            </span>
-            ,
-            <span className="hover:text-white hover:underline cursor-pointer font-book ml-1">
-              Hamoud Al Qahtani
-            </span>
-          </h1>
-        </div>
-        <div className="w-5 flex items-center ">
+      {/* Track info section */}
+      <div className="w-[30%] md:flex h-full px-6 py-4 hidden">
+        {currentTrack ? (
+          <>
+            {/* Album artwork */}
+            <Image
+              src={currentTrack.thumbnail || DummyMusicThumb}
+              alt={currentTrack.name || "Track artwork"}
+              width={60}
+              height={60}
+              priority={true}
+              className="h-full w-fit"
+            />
+            
+            {/* Track info */}
+            <div className="w-full h-full flex flex-col justify-center ml-4">
+              <h1 className="text-sm font-book text-white hover:underline cursor-pointer">
+                {currentTrack.name}
+              </h1>
+              <h1 className="text-xs text-[#B2B3B2] mt-1">
+                <span className="hover:text-white hover:underline cursor-pointer font-book">
+                  {currentTrack.artistName || "Unknown Artist"}
+                </span>
+              </h1>
+            </div>
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center">
+            <p className="text-[#B2B3B2] text-sm">No track selected</p>
+          </div>
+        )}
+        
+        {/* Like button */}
+        <div className="w-5 flex items-center">
           {isLiked ? (
             <Image
               onClick={() => setIsLiked(false)}
               src={HeartIconGreen}
-              alt="Heart Outline Icon"
+              alt="Heart Icon"
               priority={true}
-              className="h-4 cursor-pointer fill-green-500  w-4 "
+              className="h-4 cursor-pointer fill-green-500 w-4"
             />
           ) : (
             <Image
@@ -80,20 +117,23 @@ function PlayerSection() {
               src={HeartOutlineIcon}
               alt="Heart Outline Icon"
               priority={true}
-              className=" cursor-pointer opacity-70 hover:opacity-100"
+              className="cursor-pointer opacity-70 hover:opacity-100"
             />
           )}
         </div>
       </div>
-      <div className="w-[40%]  flex flex-col h-full pl-6 py-4">
-        <div className="h-[65%] w-full flex justify-center items-center ">
+      
+      {/* Player controls section */}
+      <div className="w-[40%] flex flex-col h-full pl-6 py-4">
+        <div className="h-[65%] w-full flex justify-center items-center">
+          {/* Shuffle button */}
           {isShuffle ? (
             <Image
               onClick={() => setIsShuffle(false)}
               src={ShuffleIconGreen}
               alt="shuffle icon green"
               priority={true}
-              className=" mx-3"
+              className="mx-3"
             />
           ) : (
             <Image
@@ -105,45 +145,44 @@ function PlayerSection() {
             />
           )}
 
+          {/* Previous track button */}
           <Image
             src={PreviousIcon}
             alt="previous icon"
             priority={true}
-            className="opacity-70 hover:opacity-100 mx-3"
+            onClick={playPreviousTrack}
+            className="opacity-70 hover:opacity-100 mx-3 cursor-pointer"
           />
 
+          {/* Play/Pause button */}
           <div className="bg-white h-8 hover:scale-110 rounded-full w-8 p-2 flex items-center justify-center mx-3">
             <Image
               id="player_section_playicon"
-              src={PlayIcon}
-              onClick={(e) =>
-                playPauseAction(
-                  e.target,
-                  PlayIcon,
-                  PauseIcon,
-                  undefined,
-                  undefined,
-                  // localStorage.getItem("current_audio")
-                )
-              }
-              alt="pause icon green"
+              src={isPlaying ? PauseIcon : PlayIcon}
+              onClick={handlePlayPause}
+              alt="play pause icon"
               priority={true}
+              className="cursor-pointer"
             />
           </div>
 
+          {/* Next track button */}
           <Image
             src={NextIcon}
             alt="next icon"
             priority={true}
-            className="opacity-70 hover:opacity-100 mx-3"
+            onClick={playNextTrack}
+            className="opacity-70 hover:opacity-100 mx-3 cursor-pointer"
           />
+          
+          {/* Repeat button */}
           {isRepeat ? (
             <Image
               onClick={() => setIsRepeat(false)}
               src={RepeatIconGreen}
               alt="repeat icon green"
               priority={true}
-              className=" mx-3"
+              className="mx-3"
             />
           ) : (
             <Image
@@ -155,8 +194,10 @@ function PlayerSection() {
             />
           )}
         </div>
-        <div className="h-[35%] w-full flex justify-center items-center ">
-          <div className="w-[5%] h-full flex items-center justify-center px-2 ">
+        
+        {/* Progress bar section */}
+        <div className="h-[35%] w-full flex justify-center items-center">
+          <div className="w-[5%] h-full flex items-center justify-center px-2">
             <p
               id="current-time"
               className="font-light text-xs opacity-50 text-white"
@@ -168,10 +209,10 @@ function PlayerSection() {
             id="seek_background"
             className="sm:w-[90%] w-[70%] h-full flex items-center px-2 relative seek"
           >
-            <div className="w-full h-[0.22rem] relative  bg-[#5F5C5D] rounded-full ">
+            <div className="w-full h-[0.22rem] relative bg-[#5F5C5D] rounded-full">
               <div
                 id="seek_bar"
-                className=" w-[0%] h-[0.22rem] absolute seek_bar  bg-white rounded-full flex items-center justify-end"
+                className="w-[0%] h-[0.22rem] absolute seek_bar bg-white rounded-full flex items-center justify-end"
               >
                 <div
                   id="seek_bar_dot"
@@ -180,7 +221,7 @@ function PlayerSection() {
               </div>
             </div>
           </div>
-          <div className="w-[5%] h-full flex items-center justify-center px-2 ">
+          <div className="w-[5%] h-full flex items-center justify-center px-2">
             <p
               id="duration"
               className="font-light text-xs opacity-50 text-white"
@@ -190,6 +231,8 @@ function PlayerSection() {
           </div>
         </div>
       </div>
+      
+      {/* Right controls section */}
       <div className="w-[30%] flex justify-end h-full px-10 py-4">
         <Image
           src={LyricsIcon}
@@ -218,16 +261,16 @@ function PlayerSection() {
               "white";
             document.querySelector(".sound_bar_dot").style.opacity = "0";
           }}
-          className="mx-2 opacity-50 hover:opacity-100  player_sound_icon"
+          className="mx-2 opacity-50 hover:opacity-100 player_sound_icon"
         />
         <div
           id="sound_background"
           className="w-[40%] h-full flex items-center mx-2 relative sound"
         >
-          <div className="w-full h-[0.30rem] relative  bg-[#5F5C5D] rounded-full ">
+          <div className="w-full h-[0.30rem] relative bg-[#5F5C5D] rounded-full">
             <div
               id="sound_bar"
-              className=" w-[100%] h-[0.30rem] absolute sound_bar  bg-white rounded-full flex items-center justify-end"
+              className="w-[100%] h-[0.30rem] absolute sound_bar bg-white rounded-full flex items-center justify-end"
             >
               <div className="w-3 h-3 bg-white rounded-full sound_bar_dot opacity-0 absolute -right-25"></div>
             </div>
@@ -235,7 +278,7 @@ function PlayerSection() {
         </div>
         <Image
           src={FullScreenIcon}
-          alt="sound icon"
+          alt="fullscreen icon"
           priority={true}
           className="mx-2 opacity-50 hover:opacity-100"
         />

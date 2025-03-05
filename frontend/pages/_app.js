@@ -7,6 +7,7 @@ import { RecoilRoot } from "recoil";
 import { AuthProvider } from '../context/AuthContext';
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
+import { TrackProvider } from '../context/TrackContext';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCr0HFE78FeeKNeVwkU9CRROK01U2hwxC0",
@@ -24,22 +25,16 @@ const app = initializeApp(firebaseConfig);
 export function reportWebVitals(metric) {
   switch (metric.name) {
     case "FCP":
-      // handle FCP results
       break;
     case "LCP":
-      // handle LCP results
       break;
     case "CLS":
-      // handle CLS results
       break;
     case "FID":
-      // handle FID results
       break;
     case "TTFB":
-      // handle TTFB results
       break;
     case "INP":
-      // handle INP results (note: INP is still an experimental metric)
       break;
     default:
       break;
@@ -48,18 +43,20 @@ export function reportWebVitals(metric) {
 
 function MyApp({ Component, pageProps }) {
   return (
-    <ChakraProvider>
-      <RecoilRoot>
+    <RecoilRoot>
+      <ChakraProvider>
         <AuthProvider>
-          <div>
-            <Component {...pageProps} />
-            <Header />
-            <PlayerSection />
-            <Analytics />
-          </div>
+          <TrackProvider>
+            <div className="relative">
+              <Header />
+              <Component {...pageProps} />
+              <PlayerSection />
+            </div>
+          </TrackProvider>
         </AuthProvider>
-      </RecoilRoot>
-    </ChakraProvider>
+      </ChakraProvider>
+      <Analytics />
+    </RecoilRoot>
   );
 }
 

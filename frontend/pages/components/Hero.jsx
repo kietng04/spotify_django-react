@@ -16,6 +16,7 @@ import {
 } from "../../lib/tools";
 import { useRouter } from "next/router";
 import { useAuth } from "../../context/AuthContext";
+import { useTrack } from "../../context/TrackContext";
 
 function Hero() {
   const { isLoggedIn } = useAuth();
@@ -25,15 +26,24 @@ function Hero() {
   const [currentPlayingId, setCurrentPlayingId] = useState(null);
   const audioRef = useRef(null);
   
-  // Initialize the Audio object on client-side only
+
+  const { playTrack: playTrackFromContext, isPlaying, currentTrack, togglePlayPause } = useTrack();
+
   useEffect(() => {
-    // Only create Audio instance in browser environment
     if (typeof window !== 'undefined') {
       audioRef.current = new Audio();
     }
   }, []);
-  
-  // Fallback dummy data in case API fails
+
+  const handlePlayTrack = (trackId) => {
+    if (currentTrack?.id === trackId) {
+      togglePlayPause();
+      return;
+    }
+
+    playTrackFromContext(trackId);
+  };
+
   const dummyMusicData = [
     {
       thumbnail: DummyMusicThumb5,
@@ -61,7 +71,7 @@ function Hero() {
     },
   ];
 
-  // Fetch random tracks from the API
+
   useEffect(() => {
     const fetchRandomTracks = async () => {
       try {
@@ -70,7 +80,6 @@ function Hero() {
         
         if (response.ok) {
           const data = await response.json();
-          // Transform API data to match component format
           const formattedData = data.map(track => ({
             thumbnail: track.album?.cover_image_url || DummyMusicThumb1.src,
             name: track.title,
@@ -94,23 +103,18 @@ function Hero() {
     fetchRandomTracks();
   }, []);
 
-  // New function to play/pause tracks
-  const playTrack = async (trackId, buttonElement) => {
-    // Make sure audio is initialized
+  const handlePlayLocal = async (trackId, buttonElement) => {
     if (!audioRef.current) return;
     
     try {
-      // If already playing this track, just pause it
       if (currentPlayingId === trackId && !audioRef.current.paused) {
         audioRef.current.pause();
         setCurrentPlayingId(null);
         return;
       }
       
-      // Stop any currently playing track
       audioRef.current.pause();
       
-      // Fetch stream URL from API
       const response = await fetch(`http://localhost:8000/api/stream/${trackId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch stream URL');
@@ -118,7 +122,6 @@ function Hero() {
       
       const data = await response.json();
       
-      // Set new audio source and play
       audioRef.current.src = data.stream_url;
       audioRef.current.play();
       setCurrentPlayingId(trackId);
@@ -129,12 +132,11 @@ function Hero() {
     }
   };
 
-  // Define the greeting message based on the current time of the day
   useEffect(() => {
     greetingMessageShow();
   }, []);
 
-  //   Changing the header background color
+
   useEffect(() => {
     changeHeaderBackgroundColor(
       averageColor === "" ? "#070606 " : averageColor,
@@ -142,7 +144,7 @@ function Hero() {
     );
   }, [averageColor]);
 
-  let router = useRouter();
+  const router = useRouter();
 
   return (
     <div id="hero" className={`h-[350px] w-full relative mb-8`}>
@@ -159,7 +161,7 @@ function Hero() {
 
       <div
         id="hero_gradient"
-        className="w-full brightness-[0.7] transition-colors duration-700  z-10 h-full absolute  blur-3xl -mt-[10%] -ml-[10%]"
+        className="w-full brightness-[0.7] transition-colors duration-700 z-10 h-full absolute blur-3xl -mt-[10%] -ml-[10%]"
       ></div>
 
       <div className="lg:px-8 px-4 mt-20">
@@ -168,7 +170,7 @@ function Hero() {
         </div>
         <div className="w-full z-50 xl:h-[180px] lg:h-[280px] h-[240px] flex flex-wrap lg:overflow-hidden overflow-scroll">
           {isLoading ? (
-            // Loading skeleton
+           
             Array(6).fill(0).map((_, index) => (
               <div 
                 key={index}
@@ -183,7 +185,7 @@ function Hero() {
               return (
                 <div
                   key={data.name + index}
-                  data-track-id={data.id} // Add track ID as data attribute
+                  data-track-id={data.id}
                   onMouseEnter={() =>
                     data.thumbnail && typeof data.thumbnail === 'string' 
                       ? getImageAverageColor(data.thumbnail, setAverageColor)
@@ -222,10 +224,10 @@ function Hero() {
                   </div>
                   <button className="h-12 shadow-lg shadow-black/50 flex items-center opacity-0 transition-opacity card-play-button justify-center w-12 bg-[#1DDF62] rounded-full absolute right-4">
                     <Image
-                      src={currentPlayingId === data.id ? PauseIcon : PlayIcon}
+                      src={currentTrack?.id === data.id && isPlaying ? PauseIcon : PlayIcon}
                       onClick={(e) => {
-                        // Use the track ID to play/pause music
-                        playTrack(data.id, e.target);
+  
+                        handlePlayTrack(data.id);
                         
                         playPauseAction(
                           e.target,

@@ -112,38 +112,27 @@ class RandomTracksView(APIView):
         return Response(serializer.data)
     
 class StreamAudioView(APIView):
-    permission_classes = [AllowAny]  # Changed from IsAuthenticated for testing
+    permission_classes = [AllowAny]  
     
     def get(self, request, track_id):
         try:
-            # Get the track from database
             track = Track.objects.get(id=track_id)
-            
-            # Debug logging
-            print(f"Track URI from DB: {track.uri}")
-            
-            # Use the URI directly as the S3 key - don't add .mp3 extension
+
             s3_key = track.uri
             
-            # Strip any protocol and domain if present
+
             if '://' in s3_key:
                 s3_key = s3_key.split('://', 1)[1]
                 if '/' in s3_key:
                     s3_key = s3_key.split('/', 1)[1]
-                
-            print(f"Extracted S3 Key: {s3_key}")
-            
-            # Generate a pre-signed URL
+
             presigned_url = generate_presigned_url(
                 s3_key=s3_key,
                 expiration=3600
             )
             
             if not presigned_url:
-                print("Failed to generate presigned URL")
                 return Response({"error": "Could not generate streaming URL"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
-            print(f"Generated presigned URL: {presigned_url}")
                 
             return Response({
                 "stream_url": presigned_url,
@@ -164,3 +153,22 @@ class StreamAudioView(APIView):
             print(f"Error in StreamAudioView: {str(e)}")
             print(traceback.format_exc())
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class TrackSearchView(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        query = request.query_params.get('q', '')
+        
+        if not query:
+            return Response({"error": "Search query is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from django.db.models import Q
+        tracks = Track.objects.filter(
+            Q(title__icontains=query) |  
+            Q(artists__name__icontains=query)  
+        ).select_related('album').prefetch_related('artists').distinct()[:5]
+        
+        serializer = SimpleTrackSerializer(tracks, many=True)
+        return Response(serializer.data)
