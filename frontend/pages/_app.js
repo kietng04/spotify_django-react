@@ -8,7 +8,9 @@ import { AuthProvider } from '../context/AuthContext';
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { TrackProvider } from '../context/TrackContext';
-
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { useAuthContext } from '../context/AuthContext';
 const firebaseConfig = {
   apiKey: "AIzaSyCr0HFE78FeeKNeVwkU9CRROK01U2hwxC0",
   authDomain: "spotify-6826c.firebaseapp.com",
@@ -20,7 +22,6 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-
 
 export function reportWebVitals(metric) {
   switch (metric.name) {
@@ -41,17 +42,56 @@ export function reportWebVitals(metric) {
   }
 }
 
+function TokenValidator({ children }) {
+  const router = useRouter();
+  const { logout } = useAuthContext();
+  
+  useEffect(() => {
+    const validateToken = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      try {
+        const response = await fetch('http://localhost:8000/api/validate-token/', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Token ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          logout();
+        }
+      } catch (error) {
+      }
+    };
+    
+    validateToken();
+  }, [router.pathname]);
+  
+  return children;
+}
+
 function MyApp({ Component, pageProps }) {
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+    }
+  }, []);
+
   return (
     <RecoilRoot>
       <ChakraProvider>
         <AuthProvider>
           <TrackProvider>
-            <div className="relative">
-              <Header />
+            <TokenValidator>
+              <div id="home_header">
+                <Header />
+              </div>
               <Component {...pageProps} />
-              <PlayerSection />
-            </div>
+              <div id="player_section">
+                <PlayerSection />
+              </div>
+            </TokenValidator>
           </TrackProvider>
         </AuthProvider>
       </ChakraProvider>

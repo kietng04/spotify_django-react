@@ -5,6 +5,8 @@ from .views import StreamAudioView
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from .views import (UserViewSet, LoginView, LoginWithGoogleView, 
+                   RandomTracksView, TrackSearchView, StreamAudioView, LikeTrackView, TokenValidationView)
 router = DefaultRouter()
 router.register('users', UserViewSet)
 
@@ -15,4 +17,6 @@ urlpatterns = [
     path('random-tracks/', RandomTracksView.as_view(), name='random-tracks'),
     path('stream/<int:track_id>/', StreamAudioView.as_view(), name='stream-audio'),
     path('search/tracks/', views.TrackSearchView.as_view(), name='search-tracks'),
+    path('liketrack/', LikeTrackView.as_view(), name='like-track'),
+    path('validate-token/', TokenValidationView.as_view(), name='validate-token'),
 ]

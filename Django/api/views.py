@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import MyUser, UserToken, Track
+from .models import MyUser, UserToken, Track, UserLikedTrack
 from .serializers import UserSerializer, SimpleTrackSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -10,16 +10,29 @@ from django.contrib.auth import authenticate
 from django.utils import timezone
 from .utils.s3_utils import generate_presigned_url
 from django.http import Http404, JsonResponse
+from .auth import CustomTokenAuthentication 
 
+class TokenValidationView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        return Response({
+            'valid': True,
+            'user_id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'avatarImg': user.avatarImg.url if user.avatarImg else None
+        })
+    
 class UserViewSet(viewsets.ModelViewSet):
     queryset = MyUser.objects.all()
     serializer_class = UserSerializer
 
     def get_permissions(self):
-        """
-        Instantiates and returns the list of permissions that this view requires.
-        Allow anyone to register, but require authentication for other actions.
-        """
         if self.action == 'create':
             permission_classes = [AllowAny]
         else:
@@ -172,3 +185,42 @@ class TrackSearchView(APIView):
         
         serializer = SimpleTrackSerializer(tracks, many=True)
         return Response(serializer.data)
+
+class LikeTrackView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        track_id = request.data.get('track_id')
+        
+        if not user_id or not track_id:
+            return Response({'error': 'Chưa điền đủ thông tin'}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = MyUser.objects.get(id=user_id)
+            track = Track.objects.get(id=track_id)
+            
+            like_records = UserLikedTrack.objects.filter(user=user, track=track)
+            
+            if like_records.exists():
+                like_records.delete()
+                return Response({
+                    'status': 'success',
+                    'action': 'unlike',
+                    'message': f"User {user.username} đã xóa yêu thích {track.title}"
+                }, status=status.HTTP_200_OK)
+            else:
+                like = UserLikedTrack.objects.create(user=user, track=track)
+                
+                return Response({
+                    'status': 'success',
+                    'action': 'like',
+                    'message': f"User {user.username} đã thích {track.title}",
+                    'like_id': like.id
+                }, status=status.HTTP_201_CREATED)
+            
+        except MyUser.DoesNotExist:
+            return Response({'error': 'Ko tim thay user'}, status=status.HTTP_404_NOT_FOUND)
+        except Track.DoesNotExist:
+            return Response({'error': 'Ko tim thay nhac'}, status=status.HTTP_404_NOT_FOUND)
