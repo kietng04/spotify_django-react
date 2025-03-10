@@ -115,13 +115,21 @@ class LoginWithGoogleView(APIView):
             'avatarImg': user.avatarImg.url if user.avatarImg else None,
             'expires': token.expires
         })
-
 class RandomTracksView(APIView):
     permission_classes = [AllowAny]
     
     def get(self, request):
         tracks = Track.objects.select_related('album').prefetch_related('artists').order_by('?')[:6]
-        serializer = SimpleTrackSerializer(tracks, many=True)
+        track_ids = [track.id for track in tracks]
+        context = {'request': request}
+        
+        if request.user and request.user.is_authenticated:
+            liked_track_ids = UserLikedTrack.objects.filter(
+                user=request.user, 
+                track_id__in=track_ids
+            ).values_list('track_id', flat=True)
+            context['liked_track_ids'] = liked_track_ids
+        serializer = SimpleTrackSerializer(tracks, many=True, context=context)
         return Response(serializer.data)
     
 class StreamAudioView(APIView):

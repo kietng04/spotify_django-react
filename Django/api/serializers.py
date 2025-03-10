@@ -53,10 +53,14 @@ class GenreSerializer(serializers.ModelSerializer):
 
 class SimpleTrackSerializer(serializers.ModelSerializer):
     artists = ArtistSerializer(many=True, read_only=True)
-    
+    is_liked = serializers.SerializerMethodField()
     class Meta:
         model = Track
-        fields = ['id', 'title', 'artists', 'duration_ms', 'uri', 'popularity']
+        fields = ['id', 'title', 'artists', 'duration_ms', 'uri', 'popularity', 'is_liked']
+
+    def get_is_liked(self, obj):
+        liked_track_ids = self.context.get('liked_track_ids', [])
+        return obj.id in liked_track_ids
 
 class AlbumSerializer(serializers.ModelSerializer):
     artists = ArtistSerializer(many=True, read_only=True)
