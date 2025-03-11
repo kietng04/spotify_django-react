@@ -137,18 +137,6 @@ function SidebarNav() {
       )}
 
       {renderSecondaryNavItem("liked_songs", HeartIcon, "Liked Songs")}
-
-      {renderSecondaryNavItem(
-        "your_episodes",
-        SaveIconGreen,
-        "Your Episodes"
-      )}
-
-      {renderSecondaryNavItem(
-        "downloaded",
-        DownloadIcon,
-        "Downloaded Songs"
-      )}
     </div>
   );
 }

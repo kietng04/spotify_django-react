@@ -408,74 +408,7 @@ function Header() {
               className="absolute top-0 h-10 left-3"
             />
           </div>
-        ) : router.pathname === "/collection/tracks" ? (
-          <div className="flex items-center header_common_thing opacity-0 invisible transition-opacity delay-300 duration-500">
-            <div className="w-12 h-12 bg-hover hover:scale-105 rounded-full flex items-center justify-center">
-              <Image
-                src={PlayIcon}
-                id="header_common_thing_playbutton"
-                onClick={(e) => {
-                  playPauseAction(e.target, PlayIcon, PauseIcon);
 
-                  if (
-                    e.target.src.replace(
-                      isProduction
-                        ? process.env.NEXT_PUBLIC_BASE_PROD_URL
-                        : process.env.NEXT_PUBLIC_BASE_DEV_URL,
-                      ""
-                    ) !== PlayIcon.src
-                  ) {
-                    document
-                      .getElementById("liked_songs_soundicon")
-                      .classList.replace("opacity-0", "opacity-100");
-                  } else {
-                    document
-                      .getElementById("liked_songs_soundicon")
-                      .classList.replace("opacity-100", "opacity-0");
-                  }
-                }}
-                alt="play icon green"
-                priority={true}
-                height={20}
-              />
-            </div>
-            <h1 className="text-2xl text-white font-bold ml-4">{pageTitle}</h1>
-          </div>
-        ) : router.pathname === "/collection/episodes" ? (
-          <div className="flex items-center header_common_thing opacity-0 invisible transition-opacity delay-300 duration-500">
-            <div className="w-12 h-12 bg-hover hover:scale-105 rounded-full flex items-center justify-center">
-              <Image
-                src={PlayIcon}
-                id="header_common_thing_playbutton"
-                onClick={(e) => {
-                  playPauseAction(e.target, PlayIcon, PauseIcon);
-
-                  if (
-                    e.target.src.replace(
-                      isProduction
-                        ? process.env.NEXT_PUBLIC_BASE_PROD_URL
-                        : process.env.NEXT_PUBLIC_BASE_DEV_URL,
-                      ""
-                    ) !== PlayIcon.src
-                  ) {
-                    document
-                      .getElementById("liked_songs_soundicon")
-                      .classList.replace("opacity-0", "opacity-100");
-                  } else {
-                    document
-                      .getElementById("liked_songs_soundicon")
-                      .classList.replace("opacity-100", "opacity-0");
-                  }
-                }}
-                alt="play icon green"
-                priority={true}
-                height={20}
-              />
-            </div>
-            <h1 className="text-2xl text-white font-bold ml-4">
-              {pageTitle}
-            </h1>
-          </div>
         ) :  router.pathname.includes("/playlist") ? (
           <div className="flex items-center header_common_thing opacity-0 invisible transition-opacity delay-300 duration-500">
             <div className="w-12 h-12 bg-hover hover:scale-105 rounded-full flex items-center justify-center">

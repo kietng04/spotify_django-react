@@ -8,22 +8,6 @@ import SpotifyGreenIcon from "../../images/icons/Spotify_Icon_RGB_Green.png";
 
 function PlaylistsSidebar() {
   let playlists = [
-    {
-      name: "Jamalul wujud",
-      id: "kj223n23nj4j2n34kj23n4j",
-    },
-    {
-      name: "Coding",
-      id: "njln34jl2n2lj3n42l3",
-    },
-    {
-      name: "This Is Ludovico Einaudi",
-      id: "n2l3n4l2n34l2n34l2n34",
-    },
-    {
-      name: "Coding Mode",
-      id: "lkln23kn4l23n4n2l34",
-    },
   ];
 
   let router = useRouter();

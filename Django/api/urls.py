@@ -6,7 +6,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
 from .views import (UserViewSet, LoginView, LoginWithGoogleView, 
-                   RandomTracksView, TrackSearchView, StreamAudioView, LikeTrackView, TokenValidationView)
+                   RandomTracksView, TrackSearchView, StreamAudioView, LikeTrackView, TokenValidationView, CheckLikeStatusView, LikedTracksView)
 router = DefaultRouter()
 router.register('users', UserViewSet)
 
@@ -19,4 +19,6 @@ urlpatterns = [
     path('search/tracks/', views.TrackSearchView.as_view(), name='search-tracks'),
     path('liketrack/', LikeTrackView.as_view(), name='like-track'),
     path('validate-token/', TokenValidationView.as_view(), name='validate-token'),
+    path('check-like-status/', CheckLikeStatusView.as_view(), name='check-like-status'),
+    path('liked-tracks/', LikedTracksView.as_view(), name='liked-tracks'),
 ]

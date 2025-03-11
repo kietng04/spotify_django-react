@@ -232,3 +232,55 @@ class LikeTrackView(APIView):
             return Response({'error': 'Ko tim thay user'}, status=status.HTTP_404_NOT_FOUND)
         except Track.DoesNotExist:
             return Response({'error': 'Ko tim thay nhac'}, status=status.HTTP_404_NOT_FOUND)
+        
+class CheckLikeStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
+        track_id = request.query_params.get('track_id')
+        
+        if not user_id or not track_id:
+            return Response({'error': 'Both user_id and track_id are required'}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = MyUser.objects.get(id=user_id)
+            track = Track.objects.get(id=track_id)
+            
+            is_liked = UserLikedTrack.objects.filter(user=user, track=track).exists()
+            
+            return Response({
+                'is_liked': is_liked
+            }, status=status.HTTP_200_OK)
+            
+        except MyUser.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Track.DoesNotExist:
+            return Response({'error': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+class LikedTracksView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            user = request.user
+        else:
+            try:
+                user = MyUser.objects.get(id=user_id)
+            except MyUser.DoesNotExist:
+                return Response({'error': 'Ko co user nay'}, status=status.HTTP_404_NOT_FOUND)
+        
+        liked_tracks = Track.objects.filter(
+            id__in=UserLikedTrack.objects.filter(user=user).values_list('track_id', flat=True)
+        ).select_related('album').prefetch_related('artists')
+
+        context = {
+            'request': request,
+            'liked_track_ids': [track.id for track in liked_tracks]
+        }
+        
+        serializer = SimpleTrackSerializer(liked_tracks, many=True, context=context)
+        return Response(serializer.data)       
+

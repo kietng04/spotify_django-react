@@ -43,16 +43,98 @@ function PlayerSection() {
       MuteIcon
     );
   }, []);
+  const checkLikeStatus = async (trackId) => {
+    if (!trackId) return;
+    
+    const token = localStorage.getItem('spotify_token');
+    const userDataString = localStorage.getItem('spotify_user');
+    let userId;
+    try {
+      const userData = JSON.parse(userDataString);
+      userId = userData.user_id;
+    }
+    catch (error) {
+      console.error('Error fetching user data:', error);
+      return;
+    }
+    if (!token || !userId) return;
+    
+    try {
+      const response = await fetch(`http:localhost:8000/api/check-like-status/?user_id=${userId}&track_id=${trackId}`, {
+        headers: {
+          'Authorization': `Token ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIsLiked(data.is_liked);
+      }
+    } catch (error) {
+      console.error('Error checking like status:', error);
+    }
+  };
+  
 
-  // Reset liked status when track changes
+  useEffect(() => {
+    if (currentTrack?.id) {
+      checkLikeStatus(currentTrack.id);
+    } else {
+      setIsLiked(false);
+    }
+  }, [currentTrack?.id]);
+
+  const handleLikeTrack = async () => {
+    const token = localStorage.getItem('spotify_token');
+    const userDataString = localStorage.getItem('spotify_user');
+    let userId;
+    
+    try {
+      const userData = JSON.parse(userDataString);
+      userId = userData.user_id;
+    } catch (error) {
+      console.error('Lỗi khi lấy dữ liệu người dùng:', error);
+      return;
+    }
+    if (!token || !userId || !currentTrack?.id) {
+      return;
+    }
+    
+    try {
+      const response = await fetch('http:localhost:8000/api/liketrack/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          track_id: currentTrack.id
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update like status');
+      }
+      
+      const data = await response.json();
+      
+      setIsLiked(data.action === 'like');
+      
+      console.log(`Track ${data.action === 'like' ? 'liked' : 'unliked'} successfully`);
+    } catch (error) {
+      console.error('Error updating like status:', error);
+    }
+  };
+
+  
   useEffect(() => {
     setIsLiked(false);
   }, [currentTrack?.id]);
 
   const handlePlayPause = () => {
     togglePlayPause();
-    
-    // Update the play icon visually
+
     const playerSectionPlayIcon = document.getElementById("player_section_playicon");
     if (playerSectionPlayIcon) {
       playerSectionPlayIcon.src = isPlaying ? PlayIcon.src : PauseIcon.src;
@@ -101,26 +183,26 @@ function PlayerSection() {
           </div>
         )}
         
-        {/* Like button */}
-        <div className="w-5 flex items-center">
-          {isLiked ? (
-            <Image
-              onClick={() => setIsLiked(false)}
-              src={HeartIconGreen}
-              alt="Heart Icon"
-              priority={true}
-              className="h-4 cursor-pointer fill-green-500 w-4"
-            />
-          ) : (
-            <Image
-              onClick={() => setIsLiked(true)}
-              src={HeartOutlineIcon}
-              alt="Heart Outline Icon"
-              priority={true}
-              className="cursor-pointer opacity-70 hover:opacity-100"
-            />
-          )}
-        </div>
+       {/* Like button */}
+      <div className="w-5 flex items-center">
+        {isLiked ? (
+          <Image
+            onClick={handleLikeTrack}
+            src={HeartIconGreen}
+            alt="Heart Icon"
+            priority={true}
+            className="h-4 cursor-pointer fill-green-500 w-4"
+          />
+        ) : (
+          <Image
+            onClick={handleLikeTrack}
+            src={HeartOutlineIcon}
+            alt="Heart Outline Icon"
+            priority={true}
+            className="cursor-pointer opacity-70 hover:opacity-100"
+          />
+        )}
+      </div>
       </div>
       
       {/* Player controls section */}

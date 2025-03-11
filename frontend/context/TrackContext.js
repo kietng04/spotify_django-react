@@ -1,7 +1,5 @@
-// frontend/context/TrackContext.js
-import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 
-// Create the context
 const TrackContext = createContext();
 
 export function TrackProvider({ children }) {
@@ -11,30 +9,26 @@ export function TrackProvider({ children }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const audioRef = useRef(null);
 
-  // Initialize audio on client side only
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      audioRef.current = new Audio();
-      
-      // Set up audio event listeners
-      audioRef.current.addEventListener('timeupdate', updateProgress);
-      audioRef.current.addEventListener('loadedmetadata', updateDuration);
-      audioRef.current.addEventListener('ended', handleTrackEnd);
-      
-      // Clean up when component unmounts
-      return () => {
-        if (audioRef.current) {
-          audioRef.current.removeEventListener('timeupdate', updateProgress);
-          audioRef.current.removeEventListener('loadedmetadata', updateDuration);
-          audioRef.current.removeEventListener('ended', handleTrackEnd);
-          audioRef.current.pause();
-          audioRef.current = null;
-        }
-      };
-    }
-  }, []);
+  // useEffect(() => {
+  //   if (typeof window !== 'undefined') {
+  //     audioRef.current = new Audio();
 
-  // Update progress bar as audio plays
+  //     audioRef.current.addEventListener('timeupdate', updateProgress);
+  //     audioRef.current.addEventListener('loadedmetadata', updateDuration);
+  //     audioRef.current.addEventListener('ended', handleTrackEnd);
+  //     return () => {
+  //       if (audioRef.current) {
+  //         audioRef.current.removeEventListener('timeupdate', updateProgress);
+  //         audioRef.current.removeEventListener('loadedmetadata', updateDuration);
+  //         audioRef.current.removeEventListener('ended', handleTrackEnd);
+  //         audioRef.current.pause();
+  //       }
+  //     };
+  //   }
+  // }, [handleTrackEnd]);
+
+  
+
   const updateProgress = () => {
     const progressBar = document.getElementById('seek_bar');
     const timeDisplay = document.getElementById('current-time');
@@ -49,7 +43,6 @@ export function TrackProvider({ children }) {
     }
   };
 
-  // Update duration display when metadata loads
   const updateDuration = () => {
     const durationDisplay = document.getElementById('duration');
     if (durationDisplay && audioRef.current) {
@@ -57,7 +50,6 @@ export function TrackProvider({ children }) {
     }
   };
 
-  // Format seconds to mm:ss format
   const formatTime = (seconds) => {
     if (isNaN(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
@@ -65,34 +57,24 @@ export function TrackProvider({ children }) {
     return `${mins}:${secs < 10 ? '0' + secs : secs}`;
   };
 
-  // Handle track end
-  const handleTrackEnd = () => {
-    playNextTrack();
-  };
-
-  // Play a track by ID
   const playTrack = async (trackId) => {
     try {
-      // Stop current playback
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      
-      // If same track is playing, just toggle pause/play
+
       if (currentTrack && currentTrack.id === trackId) {
         togglePlayPause();
         return;
       }
-      
-      // Fetch track details and stream URL
+
       const response = await fetch(`http://localhost:8000/api/stream/${trackId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch stream URL');
       }
       
       const data = await response.json();
-      
-      // Update current track state with new track data
+    
       setCurrentTrack({
         id: trackId,
         name: data.track_details?.title || "Unknown Track",
@@ -100,58 +82,109 @@ export function TrackProvider({ children }) {
         thumbnail: data.track_details?.cover_image_url || null,
         duration: data.track_details?.duration_ms || 0
       });
-      
-      // Set audio source and play
+
       audioRef.current.src = data.stream_url;
-      audioRef.current.play();
-      setIsPlaying(true);
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      } catch (playError) {
+        console.error('Error playing audio:', playError);
+        setIsPlaying(false);
+      }
       
     } catch (error) {
       console.error('Error playing track:', error);
     }
   };
 
-  // Toggle play/pause
-  const togglePlayPause = () => {
+    
+  const playNextTrack = useCallback(async () => {
+    if (trackQueue.length === 0) return;
+    
+    const nextIndex = currentIndex + 1;
+    if (nextIndex < trackQueue.length) {
+      setCurrentIndex(nextIndex);
+      const nextTrack = trackQueue[nextIndex];
+      await playTrack(nextTrack.id || nextTrack);
+    }
+  }, [trackQueue, currentIndex, setCurrentIndex]);
+
+  const handleTrackEnd = useCallback(() => {
+    if (currentIndex < trackQueue.length - 1) {
+      playNextTrack();
+    } else {
+      setIsPlaying(false);
+    }
+  }, [currentIndex, trackQueue.length, playNextTrack, setIsPlaying]);
+
+  const togglePlayPause = async () => {
     if (!audioRef.current || !currentTrack) return;
     
     if (isPlaying) {
       audioRef.current.pause();
+      setIsPlaying(false);
     } else {
-      audioRef.current.play();
-    }
-    
-    setIsPlaying(!isPlaying);
-  };
-
-  // Play next track in queue
-  const playNextTrack = () => {
-    if (trackQueue.length > 0 && currentIndex < trackQueue.length - 1) {
-      const nextIndex = currentIndex + 1;
-      setCurrentIndex(nextIndex);
-      playTrack(trackQueue[nextIndex].id);
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      } catch (error) {
+        console.error('Error playing audio:', error);
+      }
     }
   };
 
-  // Play previous track in queue
-  const playPreviousTrack = () => {
+
+  const playPreviousTrack = useCallback(async () => {
     if (trackQueue.length > 0 && currentIndex > 0) {
       const prevIndex = currentIndex - 1;
       setCurrentIndex(prevIndex);
-      playTrack(trackQueue[prevIndex].id);
+      
+      const prevTrack = trackQueue[prevIndex];
+      try {
+        await playTrack(prevTrack.id || prevTrack);
+      } catch (error) {
+        console.error('Error playing previous track:', error);
+      }
+    } else {
+      if (audioRef.current && audioRef.current.currentTime > 3) {
+        audioRef.current.currentTime = 0;
+      }
     }
-  };
+  }, [trackQueue, currentIndex, setCurrentIndex]);
 
-  // Return the context provider with all needed values
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      audioRef.current = new Audio();
+
+      audioRef.current.addEventListener('timeupdate', updateProgress);
+      audioRef.current.addEventListener('loadedmetadata', updateDuration);
+      audioRef.current.addEventListener('ended', handleTrackEnd);
+      return () => {
+        if (audioRef.current) {
+          audioRef.current.removeEventListener('timeupdate', updateProgress);
+          audioRef.current.removeEventListener('loadedmetadata', updateDuration);
+          audioRef.current.removeEventListener('ended', handleTrackEnd);
+          audioRef.current.pause();
+        }
+      };
+    }
+  }, [handleTrackEnd]);
+
   return (
     <TrackContext.Provider 
       value={{ 
         currentTrack, 
         isPlaying, 
+        trackQueue,
+        currentIndex,
         playTrack, 
         togglePlayPause,
         playNextTrack,
         playPreviousTrack,
+        setTrackQueue,
+        setCurrentIndex,
+        setCurrentTrack,
+        setIsPlaying,
         audioRef
       }}
     >

@@ -22,8 +22,6 @@ function HomeSection() {
         <SearchResult />
       ) : router.pathname === "/collection/tracks" ? (
         <TracksSection />
-      ) : router.pathname === "/collection/episodes" ? (
-        <EpisodesSection />
       ) : router.pathname.includes("/playlist") ? (
         <PlaylistSection />
       ) : (
