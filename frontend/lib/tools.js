@@ -106,9 +106,9 @@ module.exports = {
     if (currentHour >= 5 && currentHour < 12) {
       greetingMessage = "Good morning";
     } else if (currentHour >= 12 && currentHour < 18) {
-      greetingMessage = "2e2e ăewqe ";
+      greetingMessage = "hi ";
     } else {
-      greetingMessage = "xxxxxx";
+      greetingMessage = "hi";
     }
 
     const greetingShowElem = document.getElementById("greeting-elem");

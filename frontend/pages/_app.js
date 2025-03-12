@@ -11,6 +11,8 @@ import { TrackProvider } from '../context/TrackContext';
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuthContext } from '../context/AuthContext';
+import ChatWidget from '../components/ChatWidget';
+
 const firebaseConfig = {
   apiKey: "AIzaSyCr0HFE78FeeKNeVwkU9CRROK01U2hwxC0",
   authDomain: "spotify-6826c.firebaseapp.com",
@@ -91,6 +93,7 @@ function MyApp({ Component, pageProps }) {
               <div id="player_section">
                 <PlayerSection />
               </div>
+              <ChatWidget />
             </TokenValidator>
           </TrackProvider>
         </AuthProvider>
