@@ -21,4 +21,5 @@ urlpatterns = [
     path('validate-token/', TokenValidationView.as_view(), name='validate-token'),
     path('check-like-status/', CheckLikeStatusView.as_view(), name='check-like-status'),
     path('liked-tracks/', LikedTracksView.as_view(), name='liked-tracks'),
+    path('messages/<int:conversation_id>/', MessageListView.as_view(), name='messages'),
 ]

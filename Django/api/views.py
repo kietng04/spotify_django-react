@@ -284,3 +284,62 @@ class LikedTracksView(APIView):
         serializer = SimpleTrackSerializer(liked_tracks, many=True, context=context)
         return Response(serializer.data)       
 
+class ConversationListView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+    
+    def get(self, request):
+        user = request.user
+        conversations = Conversation.objects.filter(participants=user)
+        
+        result = []
+        for conv in conversations:
+            other_user = conv.participants.exclude(id=user.id).first()
+            if not other_user:
+                continue
+                
+            last_message = conv.messages.order_by('-timestamp').first()
+            if not last_message:
+                continue
+                
+            unread_count = conv.messages.filter(is_read=False).exclude(sender=user).count()
+            
+            result.append({
+                'id': conv.id,
+                'username': other_user.username,
+                'user_id': other_user.id,
+                'lastMessage': last_message.content[:50],
+                'timestamp': last_message.timestamp,
+                'unread': unread_count
+            })
+            
+        return Response(result)
+
+class MessageListView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+    
+    def get(self, request, conversation_id):
+        try:
+            conversation = Conversation.objects.get(id=conversation_id)
+            if request.user not in conversation.participants.all():
+                return Response({"error": "Không có quyền truy cập"}, status=403)
+                
+            messages = conversation.messages.order_by('timestamp')
+            
+            unread_messages = messages.filter(is_read=False).exclude(sender=request.user)
+            for msg in unread_messages:
+                msg.is_read = True
+                msg.save()
+                
+            result = []
+            for msg in messages:
+                result.append({
+                    'id': msg.id,
+                    'sender': msg.sender.id,
+                    'text': msg.content,
+                    'timestamp': msg.timestamp.strftime('%H:%M'),
+                    'is_read': msg.is_read
+                })
+                
+            return Response(result)
+        except Conversation.DoesNotExist:
+            return Response({"error": "Không tìm thấy cuộc trò chuyện"}, status=404)

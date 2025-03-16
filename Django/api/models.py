@@ -150,3 +150,21 @@ class TrackPlay(models.Model):
     
     def __str__(self):
         return f"{self.user.username} played {self.track.title}"
+    
+class Conversation(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    participants = models.ManyToManyField(MyUser, related_name='conversations')
+
+    def __str__(self):
+        return f"Conversation {self.id}"
+
+class Message(models.Model):
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(MyUser, on_delete=models.CASCADE, related_name='sent_messages')
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Message from {self.sender.username} at {self.timestamp}"
