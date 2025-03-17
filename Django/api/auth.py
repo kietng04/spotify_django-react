@@ -12,8 +12,7 @@ class CustomTokenAuthentication(BaseAuthentication):
         print("=== AUTHENTICATION DEBUG ===", flush=True)
         print(f"Path: {request.path}", flush=True)
         print(f"Method: {request.method}", flush=True)
-        
-        # Print all headers to see what's actually being sent
+
         print("All request headers:", flush=True)
         for key, value in request.META.items():
             if key.startswith('HTTP_'):

@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import MyUser, UserToken, Track, UserLikedTrack, Conversation
+from .models import MyUser, UserToken, Track, UserLikedTrack, Conversation, Message
 from .serializers import UserSerializer, SimpleTrackSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -347,6 +347,38 @@ class MessageListView(APIView):
             return Response(result)
         except Conversation.DoesNotExist:
             return Response({"error": "Không tìm thấy cuộc trò chuyện"}, status=404)
+    
+    def post(self, request, conversation_id):
+        try:
+            conversation = Conversation.objects.get(id=conversation_id)
+            
+            if request.user not in conversation.participants.all():
+                return Response({"error": "Không có quyền truy cập"}, status=403)
+            
+            content = request.data.get('content')
+            if not content or not content.strip():
+                return Response({"error": "Nội dung tin nhắn không được trống"}, status=400)
+            
+            message = Message.objects.create(
+                conversation=conversation,
+                sender=request.user,
+                content=content.strip(),
+                is_read=False
+            )
+            
+      
+            return Response({
+                'id': message.id,
+                'sender': message.sender.id,
+                'text': message.content,
+                'timestamp': message.timestamp.strftime('%H:%M'),
+                'is_read': message.is_read
+            }, status=201)
+            
+        except Conversation.DoesNotExist:
+            return Response({"error": "Không tìm thấy cuộc trò chuyện"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
         
 class UserSearchView(APIView):
     authentication_classes = [CustomTokenAuthentication]
@@ -384,18 +416,31 @@ class ConversationCreateView(APIView):
     
     def post(self, request):
         recipient_id = request.data.get('recipient_id')
+        initial_message = request.data.get('initial_message')
+        
         if not recipient_id:
             return Response({'error': 'Thiếu thông tin người nhận'}, status=400)
             
         try:
             recipient = MyUser.objects.get(id=recipient_id)
             existing_conversations = Conversation.objects.filter(participants=request.user).filter(participants=recipient)
+            
             if existing_conversations.exists():
                 conversation = existing_conversations.first()
             else:
                 conversation = Conversation.objects.create()
                 conversation.participants.add(request.user, recipient)
                 conversation.save()
+            
+            # Create the initial message if provided
+            message = None
+            if initial_message and initial_message.strip():
+                message = Message.objects.create(
+                    conversation=conversation,
+                    sender=request.user,
+                    content=initial_message,
+                    is_read=False
+                )
                 
             return Response({
                 'conversation_id': conversation.id,
@@ -403,7 +448,13 @@ class ConversationCreateView(APIView):
                     'id': recipient.id,
                     'username': recipient.username,
                     'avatarImg': recipient.avatarImg.url if recipient.avatarImg else None
-                }
+                },
+                'message': {
+                    'id': message.id,
+                    'content': message.content,
+                    'sender': message.sender.id,
+                    'timestamp': message.timestamp.strftime('%H:%M')
+                } if message else None
             })
         except MyUser.DoesNotExist:
             return Response({'error': 'Không tìm thấy người dùng'}, status=404)
@@ -415,11 +466,19 @@ class ConversationSearchView(APIView):
     def get(self, request):
         user = request.user
         print(f"Getting conversations for user: {user.username} (ID: {user.id})")
-        
-        # Get all conversations where the current user is a participant
-        conversations = Conversation.objects.filter(participants=user)
-        print(f"Found {conversations.count()} conversations")
-        
+        other_user_id = request.query_params.get('user_id')
+        if other_user_id:
+            # Get conversations between the current user and the specified user
+            try:
+                other_user = MyUser.objects.get(id=other_user_id)
+                conversations = Conversation.objects.filter(participants=user).filter(participants=other_user)
+                print(f"Found {conversations.count()} conversations with user ID: {other_user_id}")
+            except MyUser.DoesNotExist:
+                return Response({'error': 'User not found'}, status=404)
+        else:
+            # Get all conversations for the current user
+            conversations = Conversation.objects.filter(participants=user)
+            print(f"Found {conversations.count()} total conversations")
         result = []
         for conv in conversations:
             #traverse conv.participants.all() and get the other user

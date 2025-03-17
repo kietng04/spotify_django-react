@@ -160,88 +160,109 @@ export default function ChatWidget() {
   };
 
   // CHỨC NĂNG MỚI: Tìm kiếm cuộc trò chuyện với một người dùng cụ thể
-  const findConversationWithUser = async (userId) => {
-    try {
-      console.log(`Đang tìm kiếm cuộc trò chuyện với user ID: ${userId}`);
-      
-      const response = await fetch(`http://localhost:8000/api/conversations/search/?user_id=${userId}`, {
-        headers: {
-          'Authorization': `Token ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Kết quả tìm kiếm cuộc trò chuyện:', data);
-        
-        if (data.length > 0) {
-          return data[0];  // Trả về cuộc trò chuyện đầu tiên tìm thấy
-        }
-        return null;
-      } else {
-        const errorData = await response.json();
-        console.error('Lỗi tìm kiếm cuộc trò chuyện:', errorData);
-        return null;
+  // CHỨC NĂNG MỚI: Tìm kiếm cuộc trò chuyện với một người dùng cụ thể
+// CHỨC NĂNG MỚI: Tìm kiếm cuộc trò chuyện với một người dùng cụ thể
+const findConversationWithUser = async (userId) => {
+  try {
+    console.log(`Đang tìm kiếm cuộc trò chuyện với user ID: ${userId}`);
+    
+    // Add timestamp to prevent caching
+    const response = await fetch(`http://localhost:8000/api/conversations/search/?user_id=${userId}&_=${new Date().getTime()}`, {
+      headers: {
+        'Authorization': `Token ${token}`,
+        'Cache-Control': 'no-cache'
       }
-    } catch (error) {
-      console.error('Lỗi kết nối API tìm kiếm cuộc trò chuyện:', error);
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Kết quả tìm kiếm cuộc trò chuyện:', data);
+      
+      // Check if any conversations exist with this specific user
+      if (data && Array.isArray(data) && data.length > 0) {
+        const filteredConversations = data.filter(conv => 
+          conv.other_user && conv.other_user.id === parseInt(userId)
+        );
+        
+        if (filteredConversations.length > 0) {
+          return filteredConversations[0]; // Return the first matching conversation
+        }
+      }
+      return null; // No matching conversation found
+    } else {
+      const errorData = await response.json();
+      console.error('Lỗi tìm kiếm cuộc trò chuyện:', errorData);
       return null;
     }
-  };
-
+  } catch (error) {
+    console.error('Lỗi kết nối API tìm kiếm cuộc trò chuyện:', error);
+    return null;
+  }
+};
   // Hàm tạo cuộc trò chuyện mới
-  const createConversation = async () => {
-    if (!selectedUser) {
-      console.error('Chưa chọn người dùng');
-      return;
-    }
+  // Hàm tạo cuộc trò chuyện mới
+const createConversation = async () => {
+  if (!selectedUser) {
+    console.error('Chưa chọn người dùng');
+    return;
+  }
+  
+  try {
+    console.log(`Tạo cuộc trò chuyện với người dùng: ${selectedUser.username} (ID: ${selectedUser.id})`);
     
-    try {
-      console.log(`Tạo cuộc trò chuyện với người dùng: ${selectedUser.username} (ID: ${selectedUser.id})`);
-      
-      const response = await fetch('http://localhost:8000/api/conversations/create/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`
-        },
-        body: JSON.stringify({
-          recipient_id: selectedUser.id
-        })
-      });
+    const response = await fetch('http://localhost:8000/api/conversations/create/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${token}`
+      },
+      body: JSON.stringify({
+        recipient_id: selectedUser.id,
+        initial_message: initialMessage.trim() || null // Send the initial message with the request
+      })
+    });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Kết quả tạo cuộc trò chuyện:', data);
-        
-        // Tạo cuộc trò chuyện mới trong state
-        const newConv = {
-          id: data.conversation_id,
-          user_id: selectedUser.id,
-          username: selectedUser.username,
-          lastMessage: initialMessage || '',
-          unread: 0
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Kết quả tạo cuộc trò chuyện:', data);
+      
+      // Tạo cuộc trò chuyện mới trong state
+      const newConv = {
+        id: data.conversation_id,
+        user_id: selectedUser.id,
+        username: selectedUser.username,
+        lastMessage: initialMessage || '',
+        unread: 0,
+        timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+      };
+      
+      setConversations(prev => [newConv, ...prev]);
+      setActiveConversation(newConv);
+      
+      // If the backend created a message, add it to the messages state
+      if (data.message) {
+        const newMsg = {
+          id: data.message.id,
+          sender: data.message.sender || user?.user_id, 
+          text: data.message.content || data.message.text, 
+          timestamp: data.message.timestamp
         };
-        
-        setConversations(prev => [newConv, ...prev]);
-        setActiveConversation(newConv);
-        setMessages([]); // Reset messages
-        
-        // Nếu có tin nhắn khởi tạo, gửi nó
-        if (initialMessage.trim()) {
-          sendMessage(data.conversation_id, initialMessage);
-        }
-        
-        // Đóng modal
-        closeNewMessageModal();
+        setMessages([newMsg]);
       } else {
-        const errorData = await response.json();
-        console.error('Lỗi tạo cuộc trò chuyện:', errorData);
+        setMessages([]);
       }
-    } catch (error) {
-      console.error('Lỗi kết nối hoặc xử lý:', error);
+      
+      // Đóng modal
+      closeNewMessageModal();
+      setInitialMessage('');
+    } else {
+      const errorData = await response.json();
+      console.error('Lỗi tạo cuộc trò chuyện:', errorData);
     }
-  };
+  } catch (error) {
+    console.error('Lỗi kết nối hoặc xử lý:', error);
+  }
+};
 
   // Hàm gửi tin nhắn
   const sendMessage = async (conversationId, content) => {
@@ -265,10 +286,9 @@ export default function ChatWidget() {
         const data = await response.json();
         console.log('Tin nhắn đã gửi:', data);
         
-        // Thêm tin nhắn vào state
         const newMsg = {
           id: data.id,
-          sender: user?.id, // Lấy ID người dùng hiện tại
+          sender: user?.user_id, 
           text: content,
           timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
         };
@@ -301,6 +321,10 @@ export default function ChatWidget() {
           // Hàm mở cuộc trò chuyện
           const openConversation = async (conversation) => {
             try {
+              if (!conversation || !conversation.id) {
+                console.error("Không thể mở cuộc trò chuyện không có ID");
+                return;
+              }
               console.log(`Mở cuộc trò chuyện ID: ${conversation.id}`);
               setActiveConversation(conversation);
               
@@ -343,48 +367,58 @@ export default function ChatWidget() {
             setSelectedUser(user);
             setSearchResults([]);
             
-            // Kiểm tra xem đã có cuộc trò chuyện với người này chưa
-            const existingConversation = await findConversationWithUser(user.id);
-            if (existingConversation) {
-              console.log('Đã tìm thấy cuộc trò chuyện hiện có:', existingConversation);
-              
-              // Đóng modal tin nhắn mới
-              closeNewMessageModal();
-              
-              // Mở cuộc trò chuyện đã tồn tại
-              setActiveConversation(existingConversation);
-              openConversation(existingConversation);
+            try {
+              // Kiểm tra xem đã có cuộc trò chuyện với người này chưa
+              const existingConversation = await findConversationWithUser(user.id);
+              if (existingConversation && existingConversation.id) { // Thêm kiểm tra id
+                console.log('Đã tìm thấy cuộc trò chuyện hiện có:', existingConversation);
+                
+                // Đóng modal tin nhắn mới
+                closeNewMessageModal();
+                
+                // Mở cuộc trò chuyện đã tồn tại
+                setActiveConversation(existingConversation);
+                openConversation(existingConversation);
+              }
+              // Nếu không tìm thấy cuộc trò chuyện, không làm gì cả
+              // Người dùng sẽ nhập tin nhắn và bấm "Gửi" để tạo cuộc trò chuyện mới
+            } catch (error) {
+              console.error("Lỗi khi tìm kiếm cuộc trò chuyện:", error);
             }
           };
-          
-          // Hàm bắt đầu cuộc trò chuyện mới
+                  
           const handleStartChat = async () => {
             if (!selectedUser) {
               console.error('Chưa chọn người dùng');
               return;
             }
             
-            // Kiểm tra lại một lần nữa xem đã có cuộc trò chuyện chưa
-            const existingConversation = await findConversationWithUser(selectedUser.id);
-            
-            if (existingConversation) {
-              // Nếu đã có, mở nó
-              closeNewMessageModal();
-              setActiveConversation(existingConversation);
-              openConversation(existingConversation);
+            try {
+              // Kiểm tra xem đã có cuộc trò chuyện giữa người dùng hiện tại và người được chọn chưa
+              const existingConversation = await findConversationWithUser(selectedUser.id);
               
-              // Nếu có tin nhắn khởi tạo, gửi nó vào cuộc trò chuyện hiện có
-              if (initialMessage.trim()) {
-                sendMessage(existingConversation.id, initialMessage);
-                setInitialMessage('');
+              if (existingConversation) {
+                // Nếu đã có cuộc trò chuyện, mở nó lên
+                console.log('Đã tìm thấy cuộc trò chuyện hiện có:', existingConversation);
+                closeNewMessageModal();
+                setActiveConversation(existingConversation);
+                openConversation(existingConversation);
+                
+                // Nếu có tin nhắn khởi tạo, gửi nó vào cuộc trò chuyện hiện có
+                if (initialMessage.trim()) {
+                  sendMessage(existingConversation.id, initialMessage);
+                  setInitialMessage('');
+                }
+              } else {
+                // Nếu chưa có cuộc trò chuyện, tạo mới với tin nhắn đầu tiên
+                console.log('Chưa có cuộc trò chuyện, tạo mới với:', selectedUser.username);
+                createConversation();
               }
-            } else {
-              // Nếu chưa có, tạo mới
-              createConversation();
+            } catch (error) {
+              console.error('Lỗi kiểm tra hoặc tạo cuộc trò chuyện:', error);
             }
           };
         
-          // Các hàm tiện ích
           const toggleChatWidget = () => setIsOpen(!isOpen);
           const closeChat = () => {
             setActiveConversation(null);
@@ -477,7 +511,7 @@ export default function ChatWidget() {
                   {/* Content */}
                   {token ? (
                     activeConversation ? (
-                      <div className="flex flex-col h-full">
+                      <div className="flex flex-col" style={{ height: "calc(100% - 60px)" }}>
                         {/* Conversation header */}
                         <div className="bg-gray-100 p-3 flex items-center justify-between border-b">
                           <div className="flex items-center">
@@ -501,22 +535,23 @@ export default function ChatWidget() {
                         <div 
                           ref={messagesContainerRef}
                           className="flex-1 overflow-y-auto p-3 space-y-3"
+                          style={{ height: "calc(100% - 60px)" }}
                         >
                           {messages.map((msg) => (
                             <div 
                               key={msg.id} 
-                              className={`flex ${msg.sender === user?.id ? 'justify-end' : 'justify-start'}`}
+                              className={`flex ${msg.sender === user?.user_id ? 'justify-end' : 'justify-start'}`}
                               ref={messages[messages.length - 1]?.id === msg.id ? lastMessageRef : null}
                             >
                               <div 
                                 className={`max-w-[70%] p-3 rounded-lg ${
-                                  msg.sender === user?.id 
+                                  msg.sender === user?.user_id 
                                     ? 'bg-green-500 text-white rounded-br-none' 
                                     : 'bg-gray-200 text-gray-800 rounded-bl-none'
                                 }`}
                               >
                                 <p className="text-sm">{msg.text}</p>
-                                <p className={`text-xs ${msg.sender === user?.id ? 'text-green-100' : 'text-gray-500'} text-right mt-1`}>
+                                <p className={`text-xs ${msg.sender === user?.user_id ? 'text-green-100' : 'text-gray-500'} text-right mt-1`}>
                                   {formatTimestamp(msg.timestamp)}
                                 </p>
                               </div>
@@ -524,8 +559,8 @@ export default function ChatWidget() {
                           ))}
                         </div>
           
-                        {/* Message input */}
-                        <form onSubmit={handleSubmit} className="p-3 bg-gray-100 border-t">
+                        {/* Message input - FIX: Combined style and className properly */}
+                        <form onSubmit={handleSubmit} className="p-3 bg-gray-100 border-t" style={{ height: "60px" }}>
                           <div className="flex items-center">
                             <input
                               type="text"
@@ -550,81 +585,81 @@ export default function ChatWidget() {
                       <div className="flex-1 overflow-y-auto">
                         {/* Conversations list */}
                         {conversations.length > 0 ? (
-                        conversations.map((conv) => (
-                          <div
-                            key={conv.id}
-                            onClick={() => openConversation(conv)}
-                            className={`p-3 border-b hover:bg-gray-100 cursor-pointer flex items-center ${
-                              conv.unread > 0 ? 'bg-gray-50' : ''
-                            }`}
-                          >
-                            <div className="w-10 h-10 bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden">
-                              {conv.avatarImg ? (
-                                <img 
-                                src={formatImageUrl(conv.avatarImg)} 
-                                alt={conv.username} 
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.onerror = null; // Tránh lặp vô hạn
-                                  e.target.style.display = 'none';
-                                  
-                                  // Thêm kiểm tra trước khi thay đổi style
-                                  const fallbackSpan = e.target.parentNode.querySelector('span');
-                                  if (fallbackSpan) {
-                                    fallbackSpan.style.display = 'flex';
-                                  } else {
-                                    // Tạo span mới nếu không tìm thấy
-                                    const newSpan = document.createElement('span');
-                                    newSpan.className = 'text-sm font-bold';
-                                    newSpan.style.display = 'flex';
-                                    newSpan.textContent = conv.username?.charAt(0) || '?';
-                                    e.target.parentNode.appendChild(newSpan);
-                                  }
-                                }}
-                              />
-                              ) : (
-                                <span className="text-sm font-bold">{conv.username?.charAt(0)}</span>
-                              )}
-                            </div>
-                            <div className="ml-3 flex-1">
-                              <div className="flex items-center justify-between">
-                                <span className={`font-medium ${conv.unread > 0 ? 'font-bold text-black' : 'text-gray-800'}`}>
-                                  {conv.username}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {formatTimestamp(conv.timestamp)}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between mt-1">
-                                <p className={`text-sm truncate ${conv.unread > 0 ? 'font-medium text-black' : 'text-gray-500'}`}>
-                                  {conv.lastMessage || 'Chưa có tin nhắn'}
-                                </p>
-                                {conv.unread > 0 && (
-                                  <span className="bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                                    {conv.unread}
-                                  </span>
+                          conversations.map((conv) => (
+                            <div
+                              key={conv.id}
+                              onClick={() => openConversation(conv)}
+                              className={`p-3 border-b hover:bg-gray-100 cursor-pointer flex items-center ${
+                                conv.unread > 0 ? 'bg-gray-50' : ''
+                              }`}
+                            >
+                              <div className="w-10 h-10 bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                {conv.avatarImg ? (
+                                  <img 
+                                    src={formatImageUrl(conv.avatarImg)} 
+                                    alt={conv.username} 
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.onerror = null; // Tránh lặp vô hạn
+                                      e.target.style.display = 'none';
+                                      
+                                      // Thêm kiểm tra trước khi thay đổi style
+                                      const fallbackSpan = e.target.parentNode.querySelector('span');
+                                      if (fallbackSpan) {
+                                        fallbackSpan.style.display = 'flex';
+                                      } else {
+                                        // Tạo span mới nếu không tìm thấy
+                                        const newSpan = document.createElement('span');
+                                        newSpan.className = 'text-sm font-bold';
+                                        newSpan.style.display = 'flex';
+                                        newSpan.textContent = conv.username?.charAt(0) || '?';
+                                        e.target.parentNode.appendChild(newSpan);
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <span className="text-sm font-bold">{conv.username?.charAt(0)}</span>
                                 )}
                               </div>
+                              <div className="ml-3 flex-1">
+                                <div className="flex items-center justify-between">
+                                  <span className={`font-medium ${conv.unread > 0 ? 'font-bold text-black' : 'text-gray-800'}`}>
+                                    {conv.username}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {formatTimestamp(conv.timestamp)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between mt-1">
+                                  <p className={`text-sm truncate ${conv.unread > 0 ? 'font-medium text-black' : 'text-gray-500'}`}>
+                                    {conv.lastMessage || 'Chưa có tin nhắn'}
+                                  </p>
+                                  {conv.unread > 0 && (
+                                    <span className="bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                      {conv.unread}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-gray-500">
+                            {isLoadingConversations ? (
+                              <p>Đang tải cuộc trò chuyện...</p>
+                            ) : (
+                              <>
+                                <p>Bạn chưa có cuộc trò chuyện nào.</p>
+                                <button 
+                                  onClick={openNewMessageModal}
+                                  className="mt-2 text-green-500 hover:text-green-600"
+                                >
+                                  Tạo tin nhắn mới
+                                </button>
+                              </>
+                            )}
                           </div>
-                        ))
-                      ) : (
-                        <div className="p-4 text-center text-gray-500">
-                          {isLoadingConversations ? (
-                            <p>Đang tải cuộc trò chuyện...</p>
-                          ) : (
-                            <>
-                              <p>Bạn chưa có cuộc trò chuyện nào.</p>
-                              <button 
-                                onClick={openNewMessageModal}
-                                className="mt-2 text-green-500 hover:text-green-600"
-                              >
-                                Tạo tin nhắn mới
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
+                        )}
                       </div>
                     )
                   ) : (
