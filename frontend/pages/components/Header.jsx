@@ -87,14 +87,12 @@ function Header() {
   } = useDisclosure()
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
-  // Registration form states
+
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerUsername, setRegisterUsername] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
 
-  // Function to fetch random tracks
   const fetchRandomTracks = async () => {
     setIsLoadingTracks(true);
     try {
@@ -518,6 +516,7 @@ function Header() {
               borderRadius="full"
               size="sm"
               px={4}
+              data-login-button
             >
               Log in
             </Button>

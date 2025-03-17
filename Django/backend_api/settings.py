@@ -170,3 +170,33 @@ AWS_ACCESS_KEY_ID = 'AKIAS74TME7CSCNZESUU'
 AWS_SECRET_ACCESS_KEY = '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'
 AWS_STORAGE_BUCKET_NAME = 'ptpmmnmspotify'
 AWS_S3_REGION_NAME = 'ap-southeast-2' 
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s %(asctime)s [%(name)s] %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
+

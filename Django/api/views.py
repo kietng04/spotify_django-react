@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import MyUser, UserToken, Track, UserLikedTrack
+from .models import MyUser, UserToken, Track, UserLikedTrack, Conversation
 from .serializers import UserSerializer, SimpleTrackSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -11,6 +11,10 @@ from django.utils import timezone
 from .utils.s3_utils import generate_presigned_url
 from django.http import Http404, JsonResponse
 from .auth import CustomTokenAuthentication 
+import sys
+import logging
+
+logger = logging.getLogger('django')
 
 class TokenValidationView(APIView):
     authentication_classes = [CustomTokenAuthentication]
@@ -343,3 +347,96 @@ class MessageListView(APIView):
             return Response(result)
         except Conversation.DoesNotExist:
             return Response({"error": "Không tìm thấy cuộc trò chuyện"}, status=404)
+        
+class UserSearchView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        try:
+            query = request.query_params.get('q', '')
+            logger.info(f"Query: {query}")
+            
+            if len(query) < 2:
+                logger.info("Query quá ngắn")
+                return Response([])
+            
+            users = MyUser.objects.filter(username__icontains=query).exclude(id=request.user.id)[:10]
+            
+            logger.info(f"Tìm thấy {len(users)} kết quả")
+            
+            result = []
+            for user in users:
+                user_data = {
+                    'id': user.id,
+                    'username': user.username,
+                    'avatarImg': user.avatarImg.url if user.avatarImg and hasattr(user.avatarImg, 'url') else None
+                }
+                result.append(user_data)
+                
+            # logger.info ("Kết quả:")
+            return Response(result)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+    
+class ConversationCreateView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+    
+    def post(self, request):
+        recipient_id = request.data.get('recipient_id')
+        if not recipient_id:
+            return Response({'error': 'Thiếu thông tin người nhận'}, status=400)
+            
+        try:
+            recipient = MyUser.objects.get(id=recipient_id)
+            existing_conversations = Conversation.objects.filter(participants=request.user).filter(participants=recipient)
+            if existing_conversations.exists():
+                conversation = existing_conversations.first()
+            else:
+                conversation = Conversation.objects.create()
+                conversation.participants.add(request.user, recipient)
+                conversation.save()
+                
+            return Response({
+                'conversation_id': conversation.id,
+                'recipient': {
+                    'id': recipient.id,
+                    'username': recipient.username,
+                    'avatarImg': recipient.avatarImg.url if recipient.avatarImg else None
+                }
+            })
+        except MyUser.DoesNotExist:
+            return Response({'error': 'Không tìm thấy người dùng'}, status=404)
+        
+class ConversationSearchView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        print(f"Getting conversations for user: {user.username} (ID: {user.id})")
+        
+        # Get all conversations where the current user is a participant
+        conversations = Conversation.objects.filter(participants=user)
+        print(f"Found {conversations.count()} conversations")
+        
+        result = []
+        for conv in conversations:
+            #traverse conv.participants.all() and get the other user
+            other_user = conv.participants.exclude(id=user.id).first()
+            #print other_user
+            print(f"Conversation {conv.id} with {other_user.username} (ID: {other_user.id})")
+            # Get the last message in the conversation
+            last_message = conv.messages.order_by('-timestamp').first()
+            # push into result
+            result.append({
+                'conversation_id': conv.id,
+                'other_user': {
+                    'id': other_user.id,
+                    'username': other_user.username,
+                    'avatarImg': other_user.avatarImg.url if other_user.avatarImg else None
+                },
+                'last_message': last_message.content if last_message else None,
+                'timestamp': last_message.timestamp if last_message else None
+            })
+        return Response(result)

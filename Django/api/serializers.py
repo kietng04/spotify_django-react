@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     MyUser, Artist, Genre, Album, Track, Playlist, 
-    PlaylistTrack, UserLikedTrack, TrackPlay
+    PlaylistTrack, UserLikedTrack, TrackPlay, Message, Conversation
 )
 from django.contrib.auth.hashers import make_password 
 
@@ -132,3 +132,30 @@ class TrackPlaySerializer(serializers.ModelSerializer):
     class Meta:
         model = TrackPlay
         fields = ['id', 'user', 'track', 'played_at', 'duration_played_ms']
+
+class MessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Message
+        fields = ['id', 'sender', 'content', 'timestamp', 'is_read']
+        
+class ConversationSerializer(serializers.ModelSerializer):
+    last_message = serializers.SerializerMethodField()
+    other_user = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Conversation
+        fields = ['id', 'created_at', 'updated_at', 'participants', 'last_message', 'other_user']
+        
+    def get_last_message(self, obj):
+        message = obj.messages.order_by('-timestamp').first()
+        if message:
+            return MessageSerializer(message).data
+        return None
+            
+    def get_other_user(self, obj):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            other_user = obj.participants.exclude(id=request.user.id).first()
+            if other_user:
+                return UserSerializer(other_user).data
+        return None

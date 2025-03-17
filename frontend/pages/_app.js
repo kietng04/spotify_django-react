@@ -1,3 +1,4 @@
+
 import "../styles/globals.css";
 import { Analytics } from "@vercel/analytics/react";
 import { ChakraProvider } from "@chakra-ui/react";
@@ -12,6 +13,8 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuthContext } from '../context/AuthContext';
 import ChatWidget from '../components/ChatWidget';
+import '../styles/globals.css';
+import { UserProvider } from '../context/UserContext';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCr0HFE78FeeKNeVwkU9CRROK01U2hwxC0",
@@ -84,18 +87,21 @@ function MyApp({ Component, pageProps }) {
     <RecoilRoot>
       <ChakraProvider>
         <AuthProvider>
-          <TrackProvider>
-            <TokenValidator>
-              <div id="home_header">
-                <Header />
-              </div>
-              <Component {...pageProps} />
-              <div id="player_section">
-                <PlayerSection />
-              </div>
+          <UserProvider>  {/* Thêm UserProvider ở đây */}
+            <TrackProvider>
+              {/* ChatWidget được chuyển ra ngoài TokenValidator */}
               <ChatWidget />
-            </TokenValidator>
-          </TrackProvider>
+              <TokenValidator>
+                <div id="home_header">
+                  <Header />
+                </div>
+                <Component {...pageProps} />
+                <div id="player_section">
+                  <PlayerSection />
+                </div>
+              </TokenValidator>
+            </TrackProvider>
+          </UserProvider>
         </AuthProvider>
       </ChakraProvider>
       <Analytics />

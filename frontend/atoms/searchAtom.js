@@ -1,6 +1,7 @@
 import { atom } from "recoil";
 
+
 export const searchValue = atom({
-    key: "searchValue",
+    key: "app.search.searchInputValue", 
     default: "",
-})
+});
