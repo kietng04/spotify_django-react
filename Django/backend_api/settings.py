@@ -45,11 +45,12 @@ INSTALLED_APPS = [
 
 ASGI_APPLICATION = 'backend_api.asgi.application'
 
+# CHANNEL_LAYERS setting
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],
+            "hosts": [('redis', 6379)],  
         },
     },
 }

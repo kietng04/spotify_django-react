@@ -46,7 +46,7 @@ function PlayerSection() {
   const checkLikeStatus = async (trackId) => {
     if (!trackId) return;
     
-    const token = localStorage.getItem('spotify_token');
+
     const userDataString = localStorage.getItem('spotify_user');
     let userId;
     try {
@@ -57,7 +57,7 @@ function PlayerSection() {
       console.error('Error fetching user data:', error);
       return;
     }
-    if (!token || !userId) return;
+    if (!userId) return;
     
     try {
       const response = await fetch(`http:localhost:8000/api/check-like-status/?user_id=${userId}&track_id=${trackId}`, {
@@ -85,7 +85,7 @@ function PlayerSection() {
   }, [currentTrack?.id]);
 
   const handleLikeTrack = async () => {
-    const token = localStorage.getItem('spotify_token');
+
     const userDataString = localStorage.getItem('spotify_user');
     let userId;
     
@@ -96,7 +96,7 @@ function PlayerSection() {
       console.error('Lỗi khi lấy dữ liệu người dùng:', error);
       return;
     }
-    if (!token || !userId || !currentTrack?.id) {
+    if (!userId || !currentTrack?.id) {
       return;
     }
     

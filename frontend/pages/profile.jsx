@@ -121,7 +121,6 @@ export default function Profile() {
               size="sm"
               mt={8}
               onClick={() => {
-                localStorage.removeItem('spotify_token');
                 localStorage.removeItem('spotify_user');
                 router.push('/');
               }}

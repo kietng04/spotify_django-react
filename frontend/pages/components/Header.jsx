@@ -167,10 +167,10 @@ function Header() {
 
   // Check for existing token on component mount
   useEffect(() => {
-    const savedToken = localStorage.getItem('spotify_token');
+
     const savedUserData = localStorage.getItem('spotify_user');
     
-    if (savedToken && savedUserData) {
+    if (savedUserData) {
       setIsLoggedIn(true);
       setUserData(JSON.parse(savedUserData));
     }
@@ -201,7 +201,6 @@ function Header() {
           avatarImg: data.avatarImg || user.photoURL
         });
         
-        localStorage.setItem('spotify_token', data.token);
         localStorage.setItem('spotify_user', JSON.stringify({
           username: data.username,
           user_id: data.user_id,
@@ -257,7 +256,7 @@ function Header() {
             avatarImg: data.avatarImg || user.photoURL
           });
           
-          localStorage.setItem('spotify_token', data.token);
+  
           localStorage.setItem('spotify_user', JSON.stringify({
             username: data.username,
             user_id: data.user_id,
@@ -286,7 +285,7 @@ function Header() {
           expires: new Date(Date.now() + 24*60*60*1000).toISOString()
         });
         
-        localStorage.setItem('spotify_token', token);
+
         localStorage.setItem('spotify_user', JSON.stringify({
           username: user.displayName || user.email.split('@')[0],
           user_id: user.uid,
@@ -354,7 +353,6 @@ function Header() {
       token: '',
       expires: ''
     });
-    localStorage.removeItem('spotify_token');
     localStorage.removeItem('spotify_user');
   };
 
