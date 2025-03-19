@@ -499,3 +499,63 @@ class ConversationSearchView(APIView):
                 'timestamp': last_message.timestamp if last_message else None
             })
         return Response(result)
+    
+class AdminUserListView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        try:
+            # Kiểm tra nếu người dùng là admin
+            if request.user.role != 'admin':
+                return Response({"error": "Không có quyền truy cập"}, status=status.HTTP_403_FORBIDDEN)
+            
+            users = MyUser.objects.all()
+            
+            result = []
+            for user in users:
+                user_data = {
+                    'id': user.id,
+                    'username': user.username,
+                    'name': f"{user.first_name} {user.last_name}".strip(),
+                    'email': user.email,
+                    'image': user.avatarImg.url if user.avatarImg and hasattr(user.avatarImg, 'url') else None,
+                    'status': 'Active' if user.is_active else 'Inactive',
+                    'createdAt': user.date_joined.strftime('%Y-%m-%d'),
+                    'role': user.role,
+                    # Thêm số đơn hàng nếu có model liên quan
+                    'orders': 0  # Cập nhật nếu có model Order
+                }
+                result.append(user_data)
+                
+            return Response(result)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+        
+from rest_framework.permissions import AllowAny
+
+class PublicUserListView(APIView):
+    permission_classes = [AllowAny] 
+    
+    def get(self, request):
+        try:
+            users = MyUser.objects.all()
+            
+            result = []
+            for user in users:
+                user_data = {
+                    'id': user.id,
+                    'username': user.username,
+                    'name': f"{user.first_name} {user.last_name}".strip(),
+                    'email': user.email,
+                    'image': user.avatarImg if user.avatarImg else None,
+                    'status': 'Active' if user.is_active else 'Inactive',
+                    'createdAt': user.date_joined.strftime('%Y-%m-%d'),
+                    'role': user.role,
+                }
+                result.append(user_data)
+                
+            return Response(result)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)

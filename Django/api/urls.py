@@ -6,7 +6,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
 from .views import (UserViewSet, LoginView, LoginWithGoogleView, ConversationListView, UserSearchView, ConversationCreateView, ConversationSearchView,
-                   RandomTracksView, TrackSearchView, StreamAudioView, LikeTrackView, TokenValidationView, CheckLikeStatusView, LikedTracksView, MessageListView)
+                   RandomTracksView, TrackSearchView, StreamAudioView, LikeTrackView, TokenValidationView, CheckLikeStatusView, LikedTracksView, MessageListView, AdminUserListView, PublicUserListView)
 router = DefaultRouter()
 router.register('users', UserViewSet)
 urlpatterns = [
@@ -25,4 +25,6 @@ urlpatterns = [
     path('user-search/', UserSearchView.as_view(), name='user-search'),
     path('conversations/create/', ConversationCreateView.as_view(), name='conversation-create'),
     path('conversations/search/', ConversationSearchView.as_view(), name='conversation-search'),
+    path('admin/users/', AdminUserListView.as_view(), name='admin-user-list'),
+   path('users/list/', PublicUserListView.as_view(), name='public-user-list'),
 ]

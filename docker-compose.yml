@@ -49,6 +49,7 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      
   admin:
     build: ./ecommerce-admin
     restart: always
