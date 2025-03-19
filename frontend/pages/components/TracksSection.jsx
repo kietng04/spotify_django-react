@@ -81,9 +81,10 @@ function TracksSection() {
 
   const playUserLikedSongs = async (startFromIndex = 0) => {
     try {
-      const token = localStorage.getItem('spotify_token');
+
       const userDataString = localStorage.getItem('spotify_user');
-      
+    
+      const token = userDataString ? JSON.parse(userDataString).token : null;
       if (!token || !userDataString) return;
       
       const userData = JSON.parse(userDataString);
@@ -104,9 +105,10 @@ function TracksSection() {
   };
   const validateTokenAndFetchTracks = async () => {
     try {
-      const token = localStorage.getItem('spotify_token');
-      const userDataString = localStorage.getItem('spotify_user');
       
+      const userDataString = localStorage.getItem('spotify_user');
+      const token = userDataString ? JSON.parse(userDataString).token : null;
+
       if (!token || !userDataString) {
         setIsLoading(false);
         return;
