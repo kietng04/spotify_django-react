@@ -134,9 +134,8 @@ useEffect(() => {
         try {
           const data = JSON.parse(event.data);
           console.log('WebSocket message received:', data);
-
+      
           if (data.message) {
-            // Handle incoming message
             if (activeConversation && data.conversation_id === activeConversation.id) {
               const newMsg = {
                 id: data.message_id || new Date().getTime(), 
@@ -147,20 +146,30 @@ useEffect(() => {
               
               setMessages(prev => [...prev, newMsg]);
             }
-
-            // Update conversation list
-            setConversations(prev => 
-              prev.map(conv => 
+            setConversations(prev => {
+              const currentTimestamp = new Date();
+              const updatedConversations = prev.map(conv => 
                 conv.id === data.conversation_id 
                   ? {
                       ...conv,
                       lastMessage: data.message,
+                      fullTimestamp: currentTimestamp.toISOString(),
                       timestamp: data.timestamp || new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
                       unread: activeConversation?.id === data.conversation_id ? 0 : (conv.unread || 0) + 1
                     }
                   : conv
-              )
-            );
+              );
+              
+              return updatedConversations.sort((a, b) => {
+                if (a.fullTimestamp && b.fullTimestamp) {
+                  return new Date(b.fullTimestamp) - new Date(a.fullTimestamp);
+                }
+                
+                const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp) : a.timestamp;
+                const timeB = typeof b.timestamp === 'string' ? new Date(b.timestamp) : b.timestamp;
+                return new Date(timeB) - new Date(timeA);
+              });
+            });
           }
         } catch (error) {
           console.error('Error processing WebSocket message:', error);
@@ -169,10 +178,8 @@ useEffect(() => {
       
       chatSocket.onclose = (event) => {
         console.log('WebSocket connection closed:', event);
-        // Clear any existing reconnection timer
         clearTimeout(reconnectTimer);
         
-        // Only try to reconnect if we still have credentials
         reconnectTimer = setTimeout(() => {
           if (token && user?.user_id) {
             console.log('Attempting to reconnect WebSocket...');
@@ -249,16 +256,22 @@ useEffect(() => {
         const data = await response.json();
         console.log('Dữ liệu cuộc trò chuyện:', data);
         
-        // Transform the data to match the expected format in the UI
-        const formattedConversations = data.map(conv => ({
-          id: conv.conversation_id,
-          username: conv.other_user.username,
-          user_id: conv.other_user.id,
-          lastMessage: conv.last_message || 'Chưa có tin nhắn',
-          timestamp: conv.timestamp,
-          avatarImg: conv.other_user.avatarImg,
-          unread: 0 // You can add unread count in your backend response if needed
-        }));
+        // In fetchConversations function, modify the formattedConversations mapping
+        const formattedConversations = data.map(conv => {
+          // Parse the timestamp from backend (assuming it's an ISO string)
+          const convTime = conv.timestamp ? new Date(conv.timestamp) : new Date();
+          
+          return {
+            id: conv.conversation_id,
+            username: conv.other_user.username,
+            user_id: conv.other_user.id,
+            lastMessage: conv.last_message || 'Chưa có tin nhắn',
+            fullTimestamp: convTime.toISOString(), // Add this line
+            timestamp: convTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+            avatarImg: conv.other_user.avatarImg,
+            unread: 0
+          };
+        }).sort((a, b) => new Date(b.fullTimestamp) - new Date(a.fullTimestamp)); // Sort immediately
         
         setConversations(formattedConversations);
       } else {
@@ -446,108 +459,119 @@ const ensureWebSocketConnection = () => {
   return socket;
 };
 
-    const sendMessage = async (conversationId, content) => {
-      if (!content.trim()) return;
+      const sendMessage = async (conversationId, content) => {
+        if (!content.trim()) return;
+        const currentTimestamp = new Date();
+        try {
+          console.log(`Gửi tin nhắn đến cuộc trò chuyện ${conversationId}: "${content}"`);
+          const activeSocket = socket?.readyState === WebSocket.OPEN ? 
+            socket : ensureWebSocketConnection();
       
-      try {
-        console.log(`Gửi tin nhắn đến cuộc trò chuyện ${conversationId}: "${content}"`);
-        const activeSocket = socket?.readyState === WebSocket.OPEN ? 
-          socket : ensureWebSocketConnection();
-        
-        // Try to send via WebSocket if connected
-        if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
-          console.log('Gửi tin nhắn qua WebSocket');
-          
-          // Create a temporary message ID for optimistic UI update
-          const tempMsgId = `temp-${Date.now()}`;
-          
-          // Send message through WebSocket - only send ONCE
-          activeSocket.send(JSON.stringify({
-            type: 'chat_message',
-            conversation_id: conversationId,
-            message: content,
-            recipient_id: activeConversation.user_id
-          }));
-          
-          // Add message to UI immediately (optimistic update)
-          const newMsg = {
-            id: tempMsgId,
-            sender: user?.user_id,
-            text: content,
-            timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-          };
-          
-          setMessages(prev => [...prev, newMsg]);
-          
-          // Update conversation list with the new message
-          setConversations(prev => 
-            prev.map(conv =>
-              conv.id === conversationId 
-                ? { 
-                    ...conv, 
-                    lastMessage: content, 
-                    timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                  } 
-                : conv
-            )
-          );
-          
-          // Reset input field
-          setNewMessage('');
-        } else {
-          console.log('WebSocket không khả dụng, sử dụng REST API');
-          const userDataString = localStorage.getItem('spotify_user');
-          const tokenz = userDataString ? JSON.parse(userDataString).token : null;
-          // Fall back to REST API if WebSocket is not available
-          const response = await fetch(`http://localhost:8000/api/messages/${conversationId}/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Token ${tokenz}`
-            },
-            body: JSON.stringify({
-              content: content
-            })
-          });
+          if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+            const tempMsgId = `temp-${Date.now()}`;
     
-          if (response.ok) {
-            const data = await response.json();
-            console.log('Tin nhắn đã gửi:', data);
+            activeSocket.send(JSON.stringify({
+              type: 'chat_message',
+              conversation_id: conversationId,
+              message: content,
+              recipient_id: activeConversation.user_id
+            }));
             
+
             const newMsg = {
-              id: data.id,
-              sender: user?.user_id, 
+              id: tempMsgId,
+              sender: user?.user_id,
               text: content,
               timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
             
             setMessages(prev => [...prev, newMsg]);
             
-            setConversations(prev => 
-              prev.map(conv =>
+
+            setConversations(prev => {
+              const updatedConversations = prev.map(conv =>
                 conv.id === conversationId 
                   ? { 
                       ...conv, 
                       lastMessage: content, 
+                      fullTimestamp: new Date().toISOString(),
                       timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                     } 
                   : conv
-              )
-            );
+              );
+              
+              
+              return updatedConversations.sort((a, b) => {
+                if (a.fullTimestamp && b.fullTimestamp) {
+                  return new Date(b.fullTimestamp) - new Date(a.fullTimestamp);
+                }
+                
+                const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp) : a.timestamp;
+                const timeB = typeof b.timestamp === 'string' ? new Date(b.timestamp) : b.timestamp;
+                return new Date(timeB) - new Date(timeA);
+              });
+            });
             
-            // Reset input sau khi gửi
+        
             setNewMessage('');
           } else {
-            const errorData = await response.json();
-            console.error('Lỗi gửi tin nhắn:', errorData);
+            console.log('WebSocket không khả dụng, sử dụng REST API');
+            const userDataString = localStorage.getItem('spotify_user');
+            const tokenz = userDataString ? JSON.parse(userDataString).token : null;
+           
+            const response = await fetch(`http://localhost:8000/api/messages/${conversationId}/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Token ${tokenz}`
+              },
+              body: JSON.stringify({
+                content: content
+              })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              console.log('Tin nhắn đã gửi:', data);
+              
+              const newMsg = {
+                id: data.id,
+                sender: user?.user_id, 
+                text: content,
+                timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+              };
+              
+              setMessages(prev => [...prev, newMsg]);
+
+              setConversations(prev => {
+                const updatedConversations = prev.map(conv =>
+                  conv.id === conversationId 
+                    ? { 
+                        ...conv, 
+                        lastMessage: content, 
+                        timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                      } 
+                    : conv
+                );
+                
+             
+                return updatedConversations.sort((a, b) => {
+                  const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp) : a.timestamp;
+                  const timeB = typeof b.timestamp === 'string' ? new Date(b.timestamp) : b.timestamp;
+                  return new Date(timeB) - new Date(timeA);
+                });
+              });
+              
+              setNewMessage('');
+            } else {
+              const errorData = await response.json();
+              console.error('Lỗi gửi tin nhắn:', errorData);
+            }
           }
+        } catch (error) {
+          console.error('Lỗi kết nối hoặc xử lý:', error);
         }
-      } catch (error) {
-        console.error('Lỗi kết nối hoặc xử lý:', error);
-      }
-    };
-  
-    // Hàm mở cuộc trò chuyện
+      };
     const openConversation = async (conversation) => {
       try {
         if (!conversation || !conversation.id) {

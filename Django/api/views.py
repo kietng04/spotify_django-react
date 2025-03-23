@@ -13,6 +13,14 @@ from django.http import Http404, JsonResponse
 from .auth import CustomTokenAuthentication 
 import sys
 import logging
+from time import time
+from datetime import datetime
+import json, hmac, hashlib, urllib.request, urllib.parse, random
+from django.shortcuts import redirect
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 
 logger = logging.getLogger('django')
 
@@ -499,3 +507,160 @@ class ConversationSearchView(APIView):
                 'timestamp': last_message.timestamp if last_message else None
             })
         return Response(result)
+    
+class ZaloPayView(APIView):
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get list of supported banks from ZaloPay"""
+        try:
+            # ZaloPay configuration
+            config = {
+                "app_id": 554,
+                "key1": "8NdU5pG5R2spGHGhyO99HN1OhD8IQJBn",
+                "key2": "uUfsWgfLkRLzq6W2uNXTCxrfxs51auny",
+                "endpoint": "https://sbgateway.zalopay.vn/api/getlistmerchantbanks"
+            }
+            
+            # Create request parameters
+            reqtime = str(int(round(time() * 1000)))
+            data_str = f"{config['app_id']}|{reqtime}"
+            
+            # Create MAC for security
+            mac = hmac.new(
+                config['key1'].encode(), 
+                data_str.encode(), 
+                hashlib.sha256
+            ).hexdigest()
+            
+            # Prepare request data
+            request_data = {
+                "appid": config["app_id"],
+                "reqtime": reqtime,
+                "mac": mac
+            }
+            
+            # Send request to ZaloPay
+            response = urllib.request.urlopen(
+                url=config["endpoint"], 
+                data=urllib.parse.urlencode(request_data).encode()
+            )
+            
+            result = json.loads(response.read())
+            
+            # Return bank list to client
+            return Response(result, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    def post(self, request):
+        try:
+            # ZaloPay configuration
+            config = {
+                "app_id": 554,
+                "key1": "8NdU5pG5R2spGHGhyO99HN1OhD8IQJBn",
+                "key2": "uUfsWgfLkRLzq6W2uNXTCxrfxs51auny",
+                "endpoint": "https://sb-openapi.zalopay.vn/v2/create"
+            }
+            
+            # Get amount from request or use default
+            amount = request.data.get('amount', 50000)
+            user = request.user.username
+            
+            # Create transaction ID
+            transID = random.randrange(1000000)
+            
+            # Create order data
+            order = {
+                "app_id": config["app_id"],
+                "app_trans_id": "{:%y%m%d}_{}".format(datetime.today(), transID),
+                "app_user": user,
+                "app_time": int(round(time() * 1000)),
+                "embed_data": json.dumps({"redirecturl": "https://42e8-2001-ee0-d708-4130-182a-8954-b404-a656.ngrok-free.app/api/redirect-from-zalopay/"}),
+                "item": json.dumps([{}]),
+                "amount": amount,
+                "description": "Thanh toán đơn hàng #"+str(transID),
+                "bank_code": "zalopayapp"
+            }
+            
+            # Create MAC for security
+            data = "{}|{}|{}|{}|{}|{}|{}".format(
+                order["app_id"], 
+                order["app_trans_id"], 
+                order["app_user"], 
+                order["amount"], 
+                order["app_time"], 
+                order["embed_data"], 
+                order["item"]
+            )
+            
+            order["mac"] = hmac.new(config['key1'].encode(), data.encode(), hashlib.sha256).hexdigest()
+            
+            # Send request to ZaloPay
+            response = urllib.request.urlopen(
+                url=config["endpoint"], 
+                data=urllib.parse.urlencode(order).encode()
+            )
+            
+            result = json.loads(response.read())
+            
+            # Return result to client
+            return Response(result, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@csrf_exempt
+def zalopay_redirect(request):
+    """Handle redirect from ZaloPay after payment"""
+    print("Redirect from ZaloPay")
+    try:
+        # Get parameters from ZaloPay
+        data = request.GET
+        
+        # ZaloPay configuration
+        config = {
+            "key2": "uUfsWgfLkRLzq6W2uNXTCxrfxs51auny"
+        }
+        
+        # Verify checksum
+        checksum_data = "{}|{}|{}|{}|{}|{}|{}".format(
+            data.get('appid'), 
+            data.get('apptransid'), 
+            data.get('pmcid'), 
+            data.get('bankcode'), 
+            data.get('amount'), 
+            data.get('discountamount'), 
+            data.get('status')
+        )
+        
+        checksum = hmac.new(
+            config['key2'].encode(), 
+            checksum_data.encode(), 
+            hashlib.sha256
+        ).hexdigest()
+        
+        if checksum != data.get('checksum'):
+            # Invalid request
+            return redirect(f"http://localhost:3000/payment-failed?error=invalid_checksum")
+        
+        # Check payment status
+        status = data.get('status')
+        if status == '1':  # Payment successful
+            # TODO: Update payment status in your database
+            
+            # Redirect to frontend with success status
+            return redirect(f"http://localhost:3000/payment-success?order_id={data.get('apptransid')}")
+        else:
+            # Payment failed
+            return redirect(f"http://localhost:3000/payment-failed?error=payment_failed&status={status}")
+            
+    except Exception as e:
+        # Log the error
+        print(f"Error in zalopay_redirect: {str(e)}")
+        return redirect(f"http://localhost:3000/payment-failed?error=server_error")
