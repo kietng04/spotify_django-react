@@ -559,3 +559,60 @@ class PublicUserListView(APIView):
             
         except Exception as e:
             return Response({"error": str(e)}, status=500)
+        
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_users_list(request):
+    try:
+        users = MyUser.objects.all()
+        
+        result = []
+        for user in users:
+            user_data = {
+                'id': user.id,
+                'username': user.username,
+                'name': f"{user.first_name} {user.last_name}".strip(),
+                'email': user.email,
+                'image': user.avatarImg.url if user.avatarImg and hasattr(user.avatarImg, 'url') else None,
+                'status': 'Active' if user.is_active else 'Inactive',
+                'createdAt': user.date_joined.strftime('%Y-%m-%d'),
+                'role': user.role,
+            }
+            result.append(user_data)
+            
+        return Response(result)
+        
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+    
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+
+@api_view(['PUT'])
+@permission_classes([AllowAny])  
+def deactivate_user(request, user_id):
+    try:
+        user = MyUser.objects.get(id=user_id)
+        user.is_active = False
+        user.save()
+        
+        return Response({
+            'status': 'success',
+            'message': f'Người dùng {user.username} đã bị vô hiệu hóa'
+        })
+    except MyUser.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'Không tìm thấy người dùng'
+        }, status=404)
+    except Exception as e:
+        return Response({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)

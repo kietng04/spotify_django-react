@@ -1,5 +1,6 @@
 import * as Icons from "react-icons/tb";
-import Customers from "../../api/Customers.json";
+// Bỏ import dữ liệu tĩnh
+// import Customers from "../../api/Customers.json";
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Input from "../../components/common/Input.jsx";
@@ -12,6 +13,9 @@ import TableAction from "../../components/common/TableAction.jsx";
 import SelectOption from "../../components/common/SelectOption.jsx";
 
 const ManageCustomer = () => {
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [bulkCheck, setBulkCheck] = useState(false);
   const [specificChecks, setSpecificChecks] = useState({});
   const navigate = useNavigate();
@@ -23,7 +27,65 @@ const ManageCustomer = () => {
     { value: 10, label: "10" },
   ]);
 
-  const customer = Customers;
+  // Lấy dữ liệu người dùng từ API
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        // Sử dụng PublicUserListView API - không cần token
+        const response = await fetch("http://localhost:8000/api/users/list/", {
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        });
+
+        if (!response.ok) {
+          // Nếu API không hoạt động, dùng dữ liệu cứng từ MySQL
+          console.log("API không hoạt động, dùng dữ liệu mẫu");
+          const sampleData = [];
+          setCustomers(sampleData);
+          setLoading(false);
+          return;
+        }
+
+        const data = await response.json();
+        setCustomers(data);
+      } catch (err) {
+        console.error("Lỗi khi lấy danh sách người dùng:", err);
+        // Fallback to hardcoded data if API fails
+        const sampleData = [
+          {
+            id: 1,
+            username: "kietgemini9@gmail.com",
+            name: "kietgemini9@gmail.com",
+            email: "kietgemini9@gmail.com",
+            image:
+              "https://lh3.googleusercontent.com/a/ACg8ocKMQDb9sPNgGDx14rJJhJ4LnXna6HFqr2g5w332xaLHosI4Jw=s96-c",
+            status: "Active",
+            createdAt: "2025-03-18",
+            role: "user",
+          },
+          {
+            id: 2,
+            username: "pvk210504@gmail.com",
+            name: "pvk210504@gmail.com",
+            email: "pvk210504@gmail.com",
+            image:
+              "https://lh3.googleusercontent.com/a/ACg8ocIf8i9efjhegtgNuclCALN8B0kCA9GDW1X2GCPYy740oJ_wV_Lx4w=s96-c",
+            status: "Active",
+            createdAt: "2025-03-19",
+            role: "user",
+          },
+        ];
+        setCustomers(sampleData);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const bulkAction = [
     { value: "delete", label: "Delete" },
@@ -43,7 +105,7 @@ const ManageCustomer = () => {
     setBulkCheck(isCheck);
     if (isCheck) {
       const updateChecks = {};
-      customer.forEach((customer) => {
+      customers.forEach((customer) => {
         updateChecks[customer.id] = true;
       });
       setSpecificChecks(updateChecks);
@@ -63,18 +125,52 @@ const ManageCustomer = () => {
     setSelectedValue(selectedOption.label);
   };
 
-
   const actionItems = ["Delete", "edit"];
 
-  const handleActionItemClick = (item, itemID) => {
+  const handleActionItemClick = async (item, itemID) => {
     var updateItem = item.toLowerCase();
     if (updateItem === "delete") {
-      alert(`#${itemID} item delete`);
+      if (confirm(`Bạn có chắc chắn muốn vô hiệu hóa người dùng #${itemID}?`)) {
+        try {
+          const response = await fetch(
+            `http://localhost:8000/api/users/${itemID}/deactivate/`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+              },
+            }
+          );
+    
+          if (response.ok) {
+            // Xử lý thành công...
+          } else {
+            const errorData = await response.json().catch(() => ({}));
+            console.error("API error:", errorData);
+            alert(`Lỗi: ${errorData.message || "Không thể vô hiệu hóa người dùng"}`);
+          }
+        } catch (error) {
+          console.error("Lỗi kết nối:", error);
+          alert(`Lỗi kết nối: ${error.message}`);
+        }
+      }
     } else if (updateItem === "edit") {
       navigate(`/customers/manage/${itemID}`);
     }
   };
 
+  // Phân trang
+  const indexOfLastCustomer = currentPage * Number(selectedValue);
+  const indexOfFirstCustomer = indexOfLastCustomer - Number(selectedValue);
+  const currentCustomers = customers.slice(
+    indexOfFirstCustomer,
+    indexOfLastCustomer
+  );
+
+  if (loading) {
+    return <div className="loading">Đang tải dữ liệu người dùng...</div>;
+  }
 
   return (
     <section className="customer">
@@ -116,14 +212,14 @@ const ManageCustomer = () => {
                       <th className="td_image">image</th>
                       <th colSpan="4">name</th>
                       <th>email</th>
-                      <th>orders</th>
+                      <th>role</th>
                       <th className="td_status">status</th>
                       <th className="td_date">created at</th>
                       <th>actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {customer.map((customer, key) => {
+                    {currentCustomers.map((customer, key) => {
                       return (
                         <tr key={key}>
                           <td className="td_checkbox">
@@ -137,51 +233,37 @@ const ManageCustomer = () => {
                           <td className="td_id">{customer.id}</td>
                           <td className="td_image">
                             <img
-                              src={`${customer.image}${customer.name}`}
-                              alt={customer.name}
+                              src={
+                                customer.image ||
+                                `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                  customer.username
+                                )}`
+                              }
+                              alt={customer.username}
                             />
                           </td>
                           <td colSpan="4">
-                            <Link to={customer.id.toString()}>{customer.name}</Link>
+                            <Link to={customer.id.toString()}>
+                              {customer.name || customer.username}
+                            </Link>
                           </td>
-                          <td>{customer.contact.email}</td>
-                          <td>{customer.purchase_history.length}</td>
+                          <td>{customer.email}</td>
+                          <td>{customer.role}</td>
                           <td className="td_status">
-                            {customer.status.toLowerCase() === "active" ||
-                             customer.status.toLowerCase() === "completed" ||
-                             customer.status.toLowerCase() === "new" ||
-                             customer.status.toLowerCase() === "coming soon" ? (
-                               <Badge
-                                 label={customer.status}
-                                 className="light-success"
-                               />
-                             ) : customer.status.toLowerCase() === "inactive" ||
-                               customer.status.toLowerCase() === "out of stock" ||
-                               customer.status.toLowerCase() === "locked" ||
-                               customer.status.toLowerCase() === "discontinued" ? (
-                               <Badge
-                                 label={customer.status}
-                                 className="light-danger"
-                               />
-                             ) : customer.status.toLowerCase() === "on sale" ||
-                                 customer.status.toLowerCase() === "featured" ||
-                                 customer.status.toLowerCase() === "pending" ? (
-                               <Badge
-                                 label={customer.status}
-                                 className="light-warning"
-                               />
-                             ) : customer.status.toLowerCase() === "archive" ||
-                                 customer.status.toLowerCase() === "pause" ? (
-                               <Badge
-                                 label={customer.status}
-                                 className="light-secondary"
-                               />
-                             ) : (
-                               ""
-                             )}
+                            {customer.status.toLowerCase() === "active" ? (
+                              <Badge
+                                label={customer.status}
+                                className="light-success"
+                              />
+                            ) : (
+                              <Badge
+                                label="Block" // Thay đổi từ customer.status thành "Block"
+                                className="light-danger"
+                              />
+                            )}
                           </td>
                           <td className="td_date">{customer.createdAt}</td>
-                          
+
                           <td className="td_action">
                             <TableAction
                               actionItems={actionItems}
@@ -207,7 +289,9 @@ const ManageCustomer = () => {
               />
               <Pagination
                 currentPage={currentPage}
-                totalPages={5}
+                totalPages={
+                  Math.ceil(customers.length / Number(selectedValue)) || 1
+                }
                 onPageChange={onPageChange}
               />
             </div>
