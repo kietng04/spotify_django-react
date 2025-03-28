@@ -28,62 +28,59 @@ const ManageCustomer = () => {
   ]);
 
   // Lấy dữ liệu người dùng từ API
+  // Lấy dữ liệu người dùng từ API
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        setLoading(true);
-        // Sử dụng PublicUserListView API - không cần token
-        const response = await fetch("http://localhost:8000/api/users/list/", {
-          headers: {
-            "X-Requested-With": "XMLHttpRequest",
-          },
-        });
-
+        setLoading(true); // Add this back to show loading state
+        console.log("Đang tải dữ liệu từ API...");
+        
+        // Thay thế đoạn code fetch hiện tại bằng đoạn đơn giản sau
+const response = await fetch("http://localhost:8000/api/users/list/", {
+  method: "GET",
+  // Không gửi headers xác thực
+});
+  
         if (!response.ok) {
-          // Nếu API không hoạt động, dùng dữ liệu cứng từ MySQL
-          console.log("API không hoạt động, dùng dữ liệu mẫu");
-          const sampleData = [];
-          setCustomers(sampleData);
-          setLoading(false);
-          return;
+          console.error("API không hoạt động:", response.status, response.statusText);
+          throw new Error(`API error: ${response.status}`);
         }
-
+  
         const data = await response.json();
+        console.log("Dữ liệu nhận được từ API:", data);
         setCustomers(data);
       } catch (err) {
         console.error("Lỗi khi lấy danh sách người dùng:", err);
-        // Fallback to hardcoded data if API fails
+        // Use your actual database data as fallback
         const sampleData = [
           {
             id: 1,
             username: "kietgemini9@gmail.com",
             name: "kietgemini9@gmail.com",
             email: "kietgemini9@gmail.com",
-            image:
-              "https://lh3.googleusercontent.com/a/ACg8ocKMQDb9sPNgGDx14rJJhJ4LnXna6HFqr2g5w332xaLHosI4Jw=s96-c",
+            image: "https://lh3.googleusercontent.com/a/ACg8ocKMQDb9sPNgGDx14rJJhJ4LnXna6HFqr2g5w332xaLHosI4Jw=s96-c",
             status: "Active",
             createdAt: "2025-03-18",
             role: "user",
           },
           {
             id: 2,
-            username: "pvk210504@gmail.com",
-            name: "pvk210504@gmail.com",
+            username: "pvksdafffffffffffffAAA210504@gmail.com",
+            name: "pvk21050AAAAAAAAAAAA4@gmail.com",
             email: "pvk210504@gmail.com",
-            image:
-              "https://lh3.googleusercontent.com/a/ACg8ocIf8i9efjhegtgNuclCALN8B0kCA9GDW1X2GCPYy740oJ_wV_Lx4w=s96-c",
+            image: "https://lh3.googleusercontent.com/a/ACg8ocIf8i9efjhegtgNuclCALN8B0kCA9GDW1X2GCPYy740oJ_wV_Lx4w=s96-c",
             status: "Active",
             createdAt: "2025-03-19",
-            role: "user",
-          },
+            role: "admin",
+          }
         ];
         setCustomers(sampleData);
         setError(err.message);
       } finally {
-        setLoading(false);
+        setLoading(false); // Always set loading to false when done
       }
     };
-
+  
     fetchUsers();
   }, []);
 
@@ -144,7 +141,14 @@ const ManageCustomer = () => {
           );
     
           if (response.ok) {
-            // Xử lý thành công...
+            setCustomers(prevCustomers => 
+              prevCustomers.map(customer => 
+                customer.id === itemID 
+                  ? { ...customer, status: 'Block' } 
+                  : customer
+              )
+            );
+            alert(`Đã vô hiệu hóa người dùng #${itemID} thành công`);
           } else {
             const errorData = await response.json().catch(() => ({}));
             console.error("API error:", errorData);
@@ -168,9 +172,7 @@ const ManageCustomer = () => {
     indexOfLastCustomer
   );
 
-  if (loading) {
-    return <div className="loading">Đang tải dữ liệu người dùng...</div>;
-  }
+  
 
   return (
     <section className="customer">

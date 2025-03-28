@@ -65,6 +65,8 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',
     ],
+        'UNAUTHENTICATED_USER': None,  # Thêm dòng này
+
 }
 
 MIDDLEWARE = [
@@ -209,3 +211,10 @@ LOGGING = {
     },
 }
 
+import re
+EXEMPT_URLS = [
+    re.compile(r'^/api/users/list/$'),
+    re.compile(r'^/api/login/$'),
+    re.compile(r'^/api/google-auth/$'),
+    re.compile(r'^/api/random-tracks/$'),
+]

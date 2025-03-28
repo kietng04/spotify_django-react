@@ -11,9 +11,15 @@ from django.utils import timezone
 from .utils.s3_utils import generate_presigned_url
 from django.http import Http404, JsonResponse
 from .auth import CustomTokenAuthentication 
+from rest_framework.decorators import authentication_classes
+from rest_framework.decorators import permission_classes
+from django.db.models import Q
 import sys
 import logging
 
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 logger = logging.getLogger('django')
 
 class TokenValidationView(APIView):
@@ -534,40 +540,50 @@ class AdminUserListView(APIView):
         
 from rest_framework.permissions import AllowAny
 
+from rest_framework.permissions import AllowAny
+
+@api_view(['PUT'])
+@authentication_classes([CustomTokenAuthentication])
+@permission_classes([IsAuthenticated])
+def deactivate_user(request, user_id):
+    """
+    Deactivate a user account (admin only).
+    """
+    try:
+        # Check if the requesting user is an admin
+        if request.user.role != 'admin':
+            return Response(
+                {"error": "Unauthorized. Only admins can deactivate users."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get the user to deactivate
+        user_to_deactivate = MyUser.objects.get(id=user_id)
+        
+        # Deactivate the user
+        user_to_deactivate.is_active = False
+        user_to_deactivate.save()
+        
+        return Response({
+            "message": f"User {user_to_deactivate.username} has been deactivated successfully."
+        }, status=status.HTTP_200_OK)
+        
+    except MyUser.DoesNotExist:
+        return Response(
+            {"error": "User not found"}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {"error": str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+from rest_framework.exceptions import AuthenticationFailed
 class PublicUserListView(APIView):
-    permission_classes = [AllowAny] 
+    permission_classes = [AllowAny]
+    authentication_classes = []  # No authentication required
     
     def get(self, request):
-        try:
-            users = MyUser.objects.all()
-            
-            result = []
-            for user in users:
-                user_data = {
-                    'id': user.id,
-                    'username': user.username,
-                    'name': f"{user.first_name} {user.last_name}".strip(),
-                    'email': user.email,
-                    'image': user.avatarImg if user.avatarImg else None,
-                    'status': 'Active' if user.is_active else 'Inactive',
-                    'createdAt': user.date_joined.strftime('%Y-%m-%d'),
-                    'role': user.role,
-                }
-                result.append(user_data)
-                
-            return Response(result)
-            
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
-        
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def public_users_list(request):
-    try:
         users = MyUser.objects.all()
         
         result = []
@@ -585,34 +601,3 @@ def public_users_list(request):
             result.append(user_data)
             
         return Response(result)
-        
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
-    
-
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-
-@api_view(['PUT'])
-@permission_classes([AllowAny])  
-def deactivate_user(request, user_id):
-    try:
-        user = MyUser.objects.get(id=user_id)
-        user.is_active = False
-        user.save()
-        
-        return Response({
-            'status': 'success',
-            'message': f'Người dùng {user.username} đã bị vô hiệu hóa'
-        })
-    except MyUser.DoesNotExist:
-        return Response({
-            'status': 'error',
-            'message': 'Không tìm thấy người dùng'
-        }, status=404)
-    except Exception as e:
-        return Response({
-            'status': 'error',
-            'message': str(e)
-        }, status=500)

@@ -92,6 +92,31 @@ class Track(models.Model):
     
     def __str__(self):
         return self.title
+    
+
+class UserData(models.Model):
+    user = models.OneToOneField(MyUser, on_delete=models.CASCADE, related_name='user_data')
+    # Các trường bổ sung nếu cần (không trùng với MyUser)
+    last_login_ip = models.CharField(max_length=45, blank=True, null=True)
+    last_activity = models.DateTimeField(blank=True, null=True)
+    preferred_language = models.CharField(max_length=10, default='en')
+    theme_preference = models.CharField(max_length=20, default='light')
+    
+    # Số liệu thống kê người dùng
+    total_play_count = models.IntegerField(default=0)
+    total_listening_time_ms = models.BigIntegerField(default=0)
+    most_played_genre = models.ForeignKey(Genre, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"UserData for {self.user.username}"
+    
+    @property
+    def full_name(self):
+        return f"{self.user.first_name} {self.user.last_name}".strip() or self.user.username
+    
 
 class Playlist(models.Model):
     name = models.CharField(max_length=255)
