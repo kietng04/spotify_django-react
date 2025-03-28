@@ -581,7 +581,7 @@ def deactivate_user(request, user_id):
 from rest_framework.exceptions import AuthenticationFailed
 class PublicUserListView(APIView):
     permission_classes = [AllowAny]
-    authentication_classes = []  # No authentication required
+    authentication_classes = [CustomTokenAuthentication] 
     
     def get(self, request):
         users = MyUser.objects.all()

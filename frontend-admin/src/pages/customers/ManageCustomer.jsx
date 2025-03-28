@@ -36,7 +36,7 @@ const ManageCustomer = () => {
         console.log("Đang tải dữ liệu từ API...");
         
         // Thay thế đoạn code fetch hiện tại bằng đoạn đơn giản sau
-const response = await fetch("http://localhost:8000/api/users/list/", {
+const response = await fetch("http://localhost:8000/api/userz/list/", {
   method: "GET",
   // Không gửi headers xác thực
 });
