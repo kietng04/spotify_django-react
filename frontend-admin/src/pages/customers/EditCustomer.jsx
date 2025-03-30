@@ -1,49 +1,82 @@
 import * as Icons from "react-icons/tb";
-import Orders from '../../api/Orders.json';
-import Reviews from '../../api/Reviews.json';
-import country from '../../api/country.json';
-import {useParams, Link} from 'react-router-dom'
-import Customers from '../../api/Customers.json';
 import React, { useState, useEffect } from "react";
-import Modal from "../../components/common/Modal.jsx";
-import Badge from "../../components/common/Badge.jsx";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import Input from "../../components/common/Input.jsx";
+import Badge from "../../components/common/Badge.jsx";
 import Button from "../../components/common/Button.jsx";
-import Rating from "../../components/common/Rating.jsx";
-import Divider from "../../components/common/Divider.jsx";
 import Toggler from "../../components/common/Toggler.jsx";
-import CheckBox from "../../components/common/CheckBox.jsx";
 import Dropdown from "../../components/common/Dropdown.jsx";
-import Offcanvas from "../../components/common/Offcanvas.jsx";
 import Thumbnail from "../../components/common/Thumbnail.jsx";
-import Accordion from "../../components/common/Accordion.jsx";
-import TableAction from "../../components/common/TableAction.jsx";
-import MultiSelect from "../../components/common/MultiSelect.jsx";
 
 const EditCustomer = () => {
   const { customerId } = useParams();
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
 
-  const customer = Customers.find(customer => customer.id.toString() === customerId.toString());
-
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
   const [fields, setFields] = useState({
-    name: customer.name,
-    email: customer.contact.email,
-    phone: customer.contact.phone,
-    date: customer.dob,
+    username: "",
+    email: "",
+    first_name: "",
+    last_name: "",
     password: "",
-    passwordConfirm: "",
-    isVendor: customer.isVendor,
-    status: customer.status,
-    image: customer.image,
-    addressName:"",
-    addressPhone:"",
-    addressZip:"",
-    addressEmail:"",
-    addressStreet:"",
-    addressCountry:"",
-    addressState:"",
-    addressCity:"",
+    password_confirm: "",
+    is_superuser: false,
+    is_staff: false,
+    is_active: true,
+    avatarImg: "",
+    role: "user",
   });
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`http://localhost:8000/api/userz/list/`);
+
+        if (response.ok) {
+          const users = await response.json();
+          const user = users.find((user) => user.id.toString() === customerId);
+
+          if (user) {
+            setFields({
+              username: user.username || "",
+              email: user.email || "",
+              first_name: user.name.split(" ")[0] || "",
+              last_name: user.name.split(" ").slice(1).join(" ") || "",
+              password: "",
+              password_confirm: "",
+              is_superuser:
+                user.is_superuser === true || user.is_superuser === 1,
+              is_staff: user.is_staff === true || user.is_staff === 1,
+              is_active: user.status === "Active",
+              avatarImg: user.image || "",
+              role: user.role || "user",
+            });
+          } else {
+            setErrorMessage("Không tìm thấy người dùng");
+          }
+        } else {
+          setErrorMessage("Không thể lấy thông tin người dùng");
+        }
+      } catch (error) {
+        setErrorMessage("Lỗi kết nối: " + error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [customerId]);
 
   const handleInputChange = (key, value) => {
     setFields({
@@ -52,459 +85,288 @@ const EditCustomer = () => {
     });
   };
 
-  const isVendorCheck = (isCheck) => {
+  const toggleField = (key) => {
     setFields({
       ...fields,
-      isVendor: isCheck,
+      [key]: !fields[key],
     });
   };
 
-  const [status, setStatus] = useState([
-    {
-      value: "active",
-      label: "active",
-    },
-    {
-      value: "locked",
-      label: "locked",
-    },
-  ]);
+  const roleOptions = [
+    { value: "user", label: "User" },
+    { value: "admin", label: "Admin" },
+  ];
 
-  const handleStatusSelect = (isSelect) => {
+  const statusOptions = [
+    { value: true, label: "Active" },
+    { value: false, label: "Inactive" },
+  ];
+
+  const handleRoleSelect = (option) => {
     setFields({
       ...fields,
-      status: isSelect.label,
+      role: option.value,
     });
   };
 
-  const handleCountrySelect = (isSelect) => {
+  const handleStatusSelect = (option) => {
     setFields({
       ...fields,
-      status: isSelect.label,
+      is_active: option.value,
     });
   };
 
-  const [isOffcanvasOpen, setIsOffcanvasOpen] = useState(false);
-
-  const handleOpenOffcanvas = () => {
-    setIsOffcanvasOpen(true);
+  const handleImageChange = (base64Image) => {
+    setFields({
+      ...fields,
+      avatarImg: base64Image,
+    });
   };
 
-  const handleCloseOffcanvas = () => {
-    setIsOffcanvasOpen(false);
-  };
+  const handleSubmit = async () => {
+    // Kiểm tra trường bắt buộc
+    if (!fields.username || !fields.email) {
+      setErrorMessage("Vui lòng nhập username và email");
+      return;
+    }
 
-   const actionItems = ["Delete", "View"];
+    // Kiểm tra mật khẩu xác nhận nếu mật khẩu được cung cấp
+    if (fields.password && fields.password !== fields.password_confirm) {
+      setErrorMessage("Mật khẩu xác nhận không khớp");
+      return;
+    }
 
-  const handleActionItemClick = (item, itemID) => {
-    var updateItem = item.toLowerCase();
-    if (updateItem === "delete") {
-      alert(`#${itemID} item delete`);
-    } else if (updateItem === "view") {
-      navigate(`/catalog/product/manage/${itemID}`);
+    setIsSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      // Tạo đối tượng dữ liệu cập nhật - chỉ gửi mật khẩu nếu đã nhập
+      const updateData = {
+        username: fields.username,
+        email: fields.email,
+        first_name: fields.first_name,
+        last_name: fields.last_name,
+        is_superuser: fields.is_superuser,
+        is_staff: fields.is_staff,
+        is_active: fields.is_active,
+        avatarImg: fields.avatarImg,
+        role: fields.role,
+      };
+
+      // Chỉ thêm mật khẩu vào dữ liệu cập nhật nếu có nhập
+      if (fields.password) {
+        updateData.password = fields.password;
+      }
+
+      const response = await fetch(
+        `http://localhost:8000/api/userz/update/${customerId}/`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updateData),
+        }
+      );
+
+      if (response.ok) {
+        alert("Cập nhật người dùng thành công!");
+        navigate("/customers/manage");
+      } else {
+        const errorData = await response.json();
+        setErrorMessage(errorData.detail || "Không thể cập nhật người dùng");
+      }
+    } catch (error) {
+      setErrorMessage("Lỗi kết nối: " + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return <div>Đang tải dữ liệu...</div>;
+  }
+
   return (
     <section>
       <div className="container">
         <div className="wrapper">
           <div className="content">
             <div className="content_item">
-              <h2 className="sub_heading">Detail</h2>
+              <h2 className="sub_heading">Thông tin người dùng</h2>
+              {errorMessage && (
+                <div
+                  className="error-message"
+                  style={{ color: "red", marginBottom: "15px" }}
+                >
+                  {errorMessage}
+                </div>
+              )}
               <div className="column">
                 <Input
                   type="text"
-                  placeholder="Enter the customer name"
-                  label="Name"
+                  placeholder="Nhập tên đăng nhập"
+                  label="Username*"
                   icon={<Icons.TbUser />}
-                  value={fields.name}
-                  onChange={(value) => handleInputChange("name", value)}
+                  value={fields.username}
+                  onChange={(value) => handleInputChange("username", value)}
                 />
               </div>
               <div className="column">
                 <Input
-                  type="text"
-                  placeholder="Enter the customer email"
-                  label="Email"
+                  type="email"
+                  placeholder="Nhập email"
+                  label="Email*"
                   icon={<Icons.TbMail />}
                   value={fields.email}
                   onChange={(value) => handleInputChange("email", value)}
                 />
               </div>
               <div className="column">
-                <Toggler
-                  label="Is Vendor"
-                  checked={fields.isVendor}
-                  onChange={isVendorCheck}
+                <Input
+                  type="text"
+                  placeholder="Nhập tên"
+                  label="Tên"
+                  icon={<Icons.TbUserCircle />}
+                  value={fields.first_name}
+                  onChange={(value) => handleInputChange("first_name", value)}
                 />
               </div>
               <div className="column">
                 <Input
-                  type="tel"
-                  placeholder="Enter the customer phone"
-                  label="Phone"
-                  icon={<Icons.TbPhone />}
-                  value={fields.phone}
-                  onChange={(value) => handleInputChange("phone", value)}
+                  type="text"
+                  placeholder="Nhập họ"
+                  label="Họ"
+                  icon={<Icons.TbUserCircle />}
+                  value={fields.last_name}
+                  onChange={(value) => handleInputChange("last_name", value)}
                 />
               </div>
               <div className="column">
                 <Input
-                  type="date"
-                  placeholder="Enter the customer phone"
-                  label="Date"
-                  icon={<Icons.TbCalendar />}
-                  value={fields.date}
-                  onChange={(value) => handleInputChange("date", value)}
-                />
-              </div>
-              <div className="column">
-                <Input
-                  type="password"
-                  placeholder="Enter the customer password"
-                  label="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Nhập mật khẩu mới"
+                  label="Mật khẩu mới (để trống nếu không thay đổi)"
                   icon={<Icons.TbLock />}
                   value={fields.password}
                   onChange={(value) => handleInputChange("password", value)}
+                  buttonIcon={
+                    showPassword ? <Icons.TbEyeOff /> : <Icons.TbEye />
+                  }
+                  onButtonClick={togglePasswordVisibility}
                 />
               </div>
               <div className="column">
                 <Input
-                  type="password"
-                  placeholder="Enter the customer password confirmation"
-                  label="password confirmation"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Xác nhận mật khẩu mới"
+                  label="Xác nhận mật khẩu mới (để trống nếu không thay đổi)"
                   icon={<Icons.TbLockCheck />}
-                  value={fields.passwordConfirm}
-                  onChange={(value) => handleInputChange("passwordConfirm", value)}
+                  value={fields.password_confirm}
+                  onChange={(value) =>
+                    handleInputChange("password_confirm", value)
+                  }
+                  buttonIcon={
+                    showConfirmPassword ? <Icons.TbEyeOff /> : <Icons.TbEye />
+                  }
+                  onButtonClick={toggleConfirmPasswordVisibility}
                 />
               </div>
-            </div>
-            <div className="content_item">
-              <h2 className="sub_heading">
-                <span>Addresses</span>
-                <Button
-                  className="sm"
-                  label="new address"
-                  icon={<Icons.TbPlus/>}
-                  onClick={handleOpenOffcanvas}
-                />
-              </h2>
-              <Offcanvas isOpen={isOffcanvasOpen} onClose={handleCloseOffcanvas} className="lg">
-                <div className="offcanvas-head">
-                  <h2>add address</h2>
-                </div>
-                <div className="offcanvas-body">
-                  <div className="content_item">
-                    <div className="column_3">
-                      <Input
-                        type="text"
-                        placeholder="Address name"
-                        label="Address Name"
-                        className="sm"
-                        value={fields.addressName}
-                        onChange={(value) => handleInputChange("addressName", value)}
-                      />
-                    </div>
-                    <div className="column_3">
-                      <Input
-                        type="tel"
-                        placeholder="Address Phone"
-                        label="Address Phone"
-                        className="sm"
-                        value={fields.addressPhone}
-                        onChange={(value) => handleInputChange("addressPhone", value)}
-                      />
-                    </div>
-                    <div className="column_3">
-                      <Input
-                        type="number"
-                        placeholder="Zip code"
-                        label="Zip code"
-                        className="sm"
-                        value={fields.AddressZipCode}
-                        onChange={(value) => handleInputChange("addressZipCode", value)}
-                      />
-                    </div>
-                    <div className="column_3">
-                      <Input
-                        type="email"
-                        placeholder="Address Email"
-                        label="Address Email"
-                        className="sm"
-                        value={fields.addressEmail}
-                        onChange={(value) => handleInputChange("addressEmail", value)}
-                      />
-                    </div>
-                    <div className="column">
-                      <Input
-                        type="text"
-                        placeholder="Address Street"
-                        label="Address Street"
-                        className="sm"
-                        value={fields.addressStreet}
-                        onChange={(value) => handleInputChange("addressStreet", value)}
-                      />
-                    </div>
-                    <div className="column">
-                      
-                      <MultiSelect
-                        placeholder="Select Country"
-                        isSelected={fields.addressCountry}
-                        onClick={handleCountrySelect}
-                        options={country}
-                        className="sm"
-                        isMulti={false}
-                      />
-                    </div>
-                    <div className="column_3">
-                      <Input
-                        type="text"
-                        placeholder="Address State"
-                        label="Address State"
-                        className="sm"
-                        value={fields.addressState}
-                        onChange={(value) => handleInputChange("addressState", value)}
-                      />
-                    </div>
-                    <div className="column_3">
-                      <Input
-                        type="text"
-                        placeholder="Address City"
-                        label="Address City"
-                        className="sm"
-                        value={fields.addressCity}
-                        onChange={(value) => handleInputChange("addressCity", value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="offcanvas-footer">
-                  <Button
-                    label="discard"
-                    onClick={handleCloseOffcanvas}
-                    className="outline"
-                  />
-                  <Button
-                    label="Add"
-                    onClick={handleCloseOffcanvas}
-                  />
-                </div>
-              </Offcanvas>
-              {
-                customer.addresses.map((address, key)=>(
-                  <div className="column" key={key}>
-                    <Accordion title={`#${key < 9 ? `0${key+1}` : key+1} Address`}>
-                      <table className="bordered">
-                        <thead>
-                          <tr>
-                            <th>Street</th>
-                            <th>city</th>
-                            <th>State</th>
-                            <th>zip code</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td>{address.street}</td>
-                            <td>{address.city}</td>
-                            <td>{address.state}</td>
-                            <td>{address.zip}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </Accordion>
-                  </div>
-                ))
-              }
-            </div>
-            <div className="content_item">
-              <h2 className="sub_heading">Payments</h2>
+              {/* Thêm thông báo giải thích */}
               <div className="column">
-                <div className="table_responsive">
-                  <table className="bordered">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Order ID</th>
-                        <th>Transaction ID</th>
-                        <th>Payment Method</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                        <th>actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Orders.map((order, key) => (
-                        <tr key={key}>
-                          <td>{key}</td>
-                          <td>
-                            <Link to={`/orders/manage/${order.id.toString()}`}>#{order.id}<Icons.TbExternalLink/></Link>
-                          </td>
-                          <td>{order.payment_details.transaction_id}</td>
-                          <td>{order.payment_details.payment_method}</td>
-                          <td>{order.payment_details.amount}</td>
-                          <td className="td_status">
-                              {order.status.toLowerCase() === "active" ||
-                               order.status.toLowerCase() === "completed" ||
-                               order.status.toLowerCase() === "delivered" ||
-                               order.status.toLowerCase() === "shipped" ||
-                               order.status.toLowerCase() === "new" ||
-                               order.status.toLowerCase() === "coming soon" ? (
-                                 <Badge
-                                   label={order.status}
-                                   className="light-success"
-                                 />
-                               ) : order.status.toLowerCase() === "inactive" ||
-                                 order.status.toLowerCase() === "out of stock" ||
-                                 order.status.toLowerCase() === "locked" ||
-                                 order.status.toLowerCase() === "discontinued" ? (
-                                 <Badge
-                                   label={order.status}
-                                   className="light-danger"
-                                 />
-                               ) : order.status.toLowerCase() === "on sale" ||
-                                   order.status.toLowerCase() === "featured" ||
-                                   order.status.toLowerCase() === "processing" ||
-                                   order.status.toLowerCase() === "pending" ? (
-                                 <Badge
-                                   label={order.status}
-                                   className="light-warning"
-                                 />
-                               ) : order.status.toLowerCase() === "archive" ||
-                                   order.status.toLowerCase() === "pause" ? (
-                                 <Badge
-                                   label={order.status}
-                                   className="light-secondary"
-                                 />
-                               ) : (
-                                 "nodata"
-                               )}
-                            </td>
-                          
-                          <td className="td_action">
-                            <TableAction
-                              actionItems={actionItems}
-                              onActionItemClick={(item) =>
-                                handleActionItemClick(item, product.id)
-                              }
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            <div className="content_item">
-              <h2 className="sub_heading">reviews</h2>
-              <div className="column">
-                <table className="bordered">
-                  <thead>
-                    <tr>
-                      <th className="td_id">ID</th>
-                      <th>Product ID</th>
-                      <th>Rating</th>
-                      <th>Review Text</th>
-                      <th>Review Date</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Reviews.map(review => (
-                      <tr key={review.review_id}>
-                        <td className="td_id">#{review.review_id}</td>
-                        <td>{review.product_id}</td>
-                        <td>
-                          <Rating value={review.rating}/>
-                        </td>
-                        <td className="td_review"><p>{review.review_text}</p></td>
-                        <td>{review.review_date}</td>
-                        <td className="td_status">
-                          {review.status.toLowerCase() === "active" ||
-                           review.status.toLowerCase() === "completed" ||
-                           review.status.toLowerCase() === "approved" ||
-                           review.status.toLowerCase() === "delivered" ||
-                           review.status.toLowerCase() === "shipped" ||
-                           review.status.toLowerCase() === "new" ||
-                           review.status.toLowerCase() === "coming soon" ? (
-                             <Badge
-                               label={review.status}
-                               className="light-success"
-                             />
-                           ) : review.status.toLowerCase() === "inactive" ||
-                             review.status.toLowerCase() === "out of stock" ||
-                             review.status.toLowerCase() === "rejected" ||
-                             review.status.toLowerCase() === "locked" ||
-                             review.status.toLowerCase() === "discontinued" ? (
-                             <Badge
-                               label={review.status}
-                               className="light-danger"
-                             />
-                           ) : review.status.toLowerCase() === "on sale" ||
-                               review.status.toLowerCase() === "featured" ||
-                               review.status.toLowerCase() === "processing" ||
-                               review.status.toLowerCase() === "pending" ? (
-                             <Badge
-                               label={review.status}
-                               className="light-warning"
-                             />
-                           ) : review.status.toLowerCase() === "archive" ||
-                               review.status.toLowerCase() === "pause" ? (
-                             <Badge
-                               label={review.status}
-                               className="light-secondary"
-                             />
-                           ) : (
-                             review.status
-                           )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <small style={{ color: "#666", marginTop: "-10px" }}>
+                  * Mật khẩu được lưu dưới dạng mã hóa và không thể hiển thị.
+                  Chỉ nhập mật khẩu mới nếu bạn muốn thay đổi nó.
+                </small>
               </div>
             </div>
           </div>
+
           <div className="sidebar">
             <div className="sidebar_item">
-              <h2 className="sub_heading">Publish</h2>
-              <Button
-                label="save & exit"
+              <h2 className="sub_heading">Tùy chọn</h2>
+              {/* <Button
+                label="Lưu & Thoát"
                 icon={<Icons.TbDeviceFloppy />}
                 className=""
-              />
+                onClick={() => {
+                  handleSubmit();
+                  if (!errorMessage) navigate("/customers");
+                }}
+                disabled={isSubmitting}
+              /> */}
               <Button
-                label="save"
+                label="Lưu"
                 icon={<Icons.TbCircleCheck />}
                 className="success"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
               />
             </div>
+
             <div className="sidebar_item">
-              <h2 className="sub_heading">Status</h2>
+              <h2 className="sub_heading">Quyền</h2>
               <div className="column">
                 <Dropdown
-                  placeholder="select stock status"
-                  selectedValue={fields.status}
+                  placeholder="Chọn quyền"
+                  selectedValue={fields.role}
+                  onClick={handleRoleSelect}
+                  options={roleOptions}
+                />
+              </div>
+
+              {/* Chỉ hiển thị Superuser toggler nếu role là user */}
+              {fields.role === "user" && (
+                <div className="column">
+                  <Toggler
+                    label="Superuser"
+                    checked={fields.is_superuser}
+                    onChange={() => toggleField("is_superuser")}
+                  />
+                </div>
+              )}
+
+              {/* Chỉ hiển thị Staff toggler nếu role là admin */}
+              {fields.role === "admin" && (
+                <div className="column">
+                  <Toggler
+                    label="Staff"
+                    checked={fields.is_staff}
+                    onChange={() => toggleField("is_staff")}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="sidebar_item">
+              <h2 className="sub_heading">Trạng thái</h2>
+              <div className="column">
+                <Dropdown
+                  placeholder="Chọn trạng thái"
+                  selectedValue={fields.is_active ? "Active" : "Inactive"}
                   onClick={handleStatusSelect}
-                  options={status}
-                  // className="sm"
+                  options={statusOptions}
                 />
               </div>
             </div>
+
             <div className="sidebar_item">
-              <h2 className="sub_heading">Image</h2>
+              <h2 className="sub_heading">Ảnh đại diện</h2>
               <div className="column">
                 <Thumbnail
-                  preloadedImage={fields.image}
+                  preloadedImage={fields.avatarImg}
+                  onChange={handleImageChange}
                 />
+                <small style={{ display: "block", marginTop: "5px" }}>
+                  Nhấp vào ô trên để thay đổi hình ảnh
+                </small>
               </div>
             </div>
           </div>
         </div>
       </div>
     </section>
-  )
-}
+  );
+};
 
-export default EditCustomer
+export default EditCustomer;

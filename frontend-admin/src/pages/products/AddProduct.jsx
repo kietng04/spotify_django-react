@@ -1,191 +1,170 @@
 import * as Icons from "react-icons/tb";
-import Tags from "../../api/Tags.json";
-import Taxes from "../../api/Taxes.json";
-import Labels from "../../api/Labels.json";
-import Products from "../../api/Products.json";
 import React, { useState, useEffect } from "react";
-import Variations from "../../api/Variations.json";
-import Colloctions from "../../api/Colloctions.json";
-import Modal from "../../components/common/Modal.jsx";
+import { useNavigate } from "react-router-dom";
 import Input from "../../components/common/Input.jsx";
-import Tagify from "../../components/common/Tagify.jsx";
 import Button from "../../components/common/Button.jsx";
-import Attributes from "../../api/ProductAttributes.json";
-import Divider from "../../components/common/Divider.jsx";
-import CheckBox from "../../components/common/CheckBox.jsx";
 import Dropdown from "../../components/common/Dropdown.jsx";
-import Textarea from "../../components/common/Textarea.jsx";
-import Offcanvas from "../../components/common/Offcanvas.jsx";
-import Accordion from "../../components/common/Accordion.jsx";
-import FileUpload from "../../components/common/FileUpload.jsx";
-import TextEditor from "../../components/common/TextEditor.jsx";
-import TableAction from "../../components/common/TableAction.jsx";
-import MultiSelect from "../../components/common/MultiSelect.jsx";
 
-const AddProduct = ({ productData }) => {
-  const [product, setProduct] = useState({
-    name: "",
-    description: "",
-    sku: "",
-    priceSale: "",
-    price: "",
-    costPerItem: "",
-    profit: "",
-    margin: "",
-    barcode: "",
-    quantity: "",
-    question: "",
-    answer: "",
-    metaLink: "http://localhost:5173/catalog/product",
-    metaTitle: "",
-    metaDescription: "",
-  });
-
-  const [selectOptions, setSelectOptions] = useState([
-    {
-      value: "success",
-      label: "in stock",
-    },
-    {
-      value: "danger",
-      label: "out of stock",
-    },
-    {
-      value: "warning",
-      label: "On backorder",
-    },
+const AddTrack = () => {
+  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [albums, setAlbums] = useState([
+    { value: 1, label: "Epic Sounds" },
+    { value: 2, label: "Summer Hits" },
+    { value: 3, label: "Corporate Music" },
+    { value: 4, label: "Love Songs" },
+    { value: 5, label: "Yoga & Meditation" }
   ]);
+  
+  const [fields, setFields] = useState({
+    title: "",
+    audio_file: null,
+    duration_ms: 0,
+    track_number: 1,
+    album: 1, // Giá trị mặc định
+    
 
-  const [selectedValue, setSelectedValue] = useState({
-    stockValue: "",
-    attribute: "",
-    attributeValue: "",
   });
+
+  // Fetch danh sách album khi component mount
+  // useEffect(() => {
+  //   const fetchAlbums = async () => {
+  //     try {
+  //       const response = await fetch("http://localhost:8000/api/albums/list/");
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         setAlbums(data.map(album => ({
+  //           value: album.id,
+  //           label: album.title
+  //         })));
+  //       } else {
+  //         console.error("Không thể lấy danh sách album");
+  //         // Dữ liệu mẫu nếu API không tồn tại
+  //         setAlbums([
+  //           { value: 1, label: "Epic Sounds" },
+  //           { value: 2, label: "Summer Hits" },
+  //           { value: 3, label: "Corporate Music" },
+  //           { value: 4, label: "Love Songs" },
+  //           { value: 5, label: "Yoga & Meditation" }
+  //         ]);
+  //       }
+  //     } catch (error) {
+  //       console.error("Lỗi khi lấy danh sách album:", error);
+  //       // Dữ liệu mẫu nếu có lỗi
+  //       setAlbums([
+  //         { value: 1, label: "Epic Sounds" },
+  //         { value: 2, label: "Summer Hits" },
+  //         { value: 3, label: "Corporate Music" },
+  //         { value: 4, label: "Love Songs" },
+  //         { value: 5, label: "Yoga & Meditation" }
+  //       ]);
+  //     }
+  //   };
+
+  //   fetchAlbums();
+  // }, []);
 
   const handleInputChange = (key, value) => {
-    setProduct({
-      ...product,
+    setFields({
+      ...fields,
       [key]: value,
     });
   };
 
-  useEffect(() => {
-    const profit = product.price - product.costPerItem;
-    const margin = profit / product.price * 100;
-    setProduct({
-      ...product,
-      profit: profit,
-      margin: margin ? margin : '',
-    });
-  }, [product.price,product.costPerItem])
-
-  const handleStockSelect = (selectedOption) => {
-    setSelectedValue({
-      ...selectedValue,
-      stockValue: selectedOption.label,
+  const handleAlbumSelect = (selectedOption) => {
+    setFields({
+      ...fields,
+      album: selectedOption.value,
     });
   };
 
-  const attributes = Attributes.map((attribute) => ({
-    label: attribute.name,
-    value: attribute.name,
-  }));
+  const handleAudioUpload = (file) => {
+    if (!file) return;
 
-  const [attributeOption, setAttributeOption] = useState(attributes);
+    console.log("File được chọn:", file.name);
 
-  const handleAttributeSelect = (selectedOption) => {
-    setSelectedValue({
-      ...selectedValue,
-      attribute: selectedOption.label,
+    setFields({
+      ...fields,
+      audio_file: file,
     });
-  };
 
-  const [faqs, setFaqs] = useState([]);
+    try {
+      const audio = new Audio();
+      audio.src = URL.createObjectURL(file);
 
-  const handleFaqQuestion = (e) => {
-    e.preventDefault();
-    if (product.question && product.answer) {
-      setFaqs([
-        ...faqs,
-        {
-          question: product.question,
-          answer: product.answer,
-        },
-      ]);
-      setProduct({
-        ...product,
-        question: "",
-        answer: "",
-      });
+      audio.onloadedmetadata = () => {
+        console.log("Đã đọc metadata:", audio.duration);
+        setFields((prev) => ({
+          ...prev,
+          duration_ms: Math.round(audio.duration * 1000),
+        }));
+      };
+
+      audio.onerror = (e) => {
+        console.error("Lỗi khi đọc file audio:", e);
+        setFields((prev) => ({
+          ...prev,
+          duration_ms: 180000,
+        }));
+      };
+    } catch (error) {
+      console.error("Lỗi khi xử lý file:", error);
     }
   };
 
-  const uniqueCategories = [...new Set(Products.map(product => product.category))];
+  const handleSubmit = async () => {
+    // Kiểm tra các trường bắt buộc
+    if (!fields.title) {
+      setErrorMessage("Vui lòng nhập tên bài hát");
+      return;
+    }
 
-  const category = uniqueCategories.map(category => ({
-    label: category
-  }));
+    if (!fields.audio_file) {
+      setErrorMessage("Vui lòng tải lên file âm thanh");
+      return;
+    }
 
-  const [tags, setTags] = useState(Tags);
-  const [taxes, setTaxes] = useState(Taxes);
-  const [colloctions, setColloctions] = useState(Colloctions);
-  const [labels, setLabels] = useState(Labels);
+    setIsSubmitting(true);
+    setErrorMessage("");
 
-  const handleCheckTax = (id, checked) => {
-    setTaxes((prevCheckboxes) =>
-      prevCheckboxes.map((checkbox) =>
-        checkbox.id === id ? { ...checkbox, isChecked: checked } : checkbox
-      )
-    );
-  };
-  const handleCheckCollection = (id, checked) => {
-    setColloctions((prevCheckboxes) =>
-      prevCheckboxes.map((checkbox) =>
-        checkbox.id === id ? { ...checkbox, isChecked: checked } : checkbox
-      )
-    );
-  };
-  const handleCheckLabels = (id, checked) => {
-    setLabels((prevCheckboxes) =>
-      prevCheckboxes.map((checkbox) =>
-        checkbox.id === id ? { ...checkbox, isChecked: checked } : checkbox
-      )
-    );
-  };
+    try {
+      console.log("Bắt đầu gửi form với dữ liệu:", fields);
+      const formData = new FormData();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+      formData.append("title", fields.title);
+      console.log("Đã thêm title:", fields.title);
 
-  const openModal = () => {
-    setIsModalOpen(true);
-  };
+      formData.append("album", fields.album);
+      console.log("Đã thêm album:", fields.album);
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-  };
+      formData.append("audio_file", fields.audio_file);
+      console.log("Đã thêm audio_file:", fields.audio_file?.name);
 
-  const getAttributesString = (attributes) => {
-    const availableAttributes = Object.values(attributes).filter(value => value);
-    return availableAttributes.join(' / ');
-  };
+      formData.append("duration_ms", fields.duration_ms || 180000);
+      formData.append("track_number", fields.track_number);
+      formData.append("disc_number", 1);
+      formData.append("explicit", false);
+      formData.append("popularity", 50);
+      formData.append("artists", 1);
 
-  const [isOffcanvasOpen, setIsOffcanvasOpen] = useState(false);
+      const response = await fetch("http://localhost:8000/api/tracks/add/", {
+        method: "POST",
+        body: formData,
+      });
 
-  const handleOpenOffcanvas = () => {
-    setIsOffcanvasOpen(true);
-  };
-
-  const handleCloseOffcanvas = () => {
-    setIsOffcanvasOpen(false);
-  };
-
-  const actionItems = ["Delete", "View"];
-
-  const handleActionItemClick = (item, itemID) => {
-    var updateItem = item.toLowerCase();
-    if (updateItem === "delete") {
-      alert(`#${itemID} item delete`);
-    } else if (updateItem === "view") {
-      setIsOffcanvasOpen(true);
+      if (response.ok) {
+        alert("Bài hát đã được thêm thành công!");
+        navigate("/tracks/manage");
+      } else {
+        const errorData = await response.json();
+        setErrorMessage(errorData.detail || "Không thể thêm bài hát mới");
+      }
+    } catch (error) {
+      console.error("Lỗi khi thêm bài hát:", error);
+      setErrorMessage("Lỗi kết nối: " + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -195,485 +174,144 @@ const AddProduct = ({ productData }) => {
         <div className="wrapper">
           <div className="content">
             <div className="content_item">
-              <h2 className="sub_heading">Product Info</h2>
-              <div className="column">
-                <Input
-                  type="text"
-                  placeholder="Enter the product name"
-                  label="Name"
-                  icon={<Icons.TbShoppingCart />}
-                  value={product.name}
-                  onChange={(value) => handleInputChange("name", value)}
-                />
-              </div>
-              <div className="column">
-                <TextEditor
-                  label="Description"
-                  placeholder="Enter a description"
-                  value={product.description}
-                  onChange={(value) => handleInputChange("description", value)}
-                />
-              </div>  
-            </div>
-            <div className="content_item">
-            <h2 className="sub_heading">Product Images</h2>
-              <FileUpload/>
-            </div>
-            <div className="content_item">
-              <h2 className="sub_heading">Pricing</h2>
-              {/*<div className="column_2">
-                <Input
-                  type="text"
-                  placeholder="Enter the product SKU"
-                  icon={<Icons.TbHash />}
-                  label="SKU"
-                  value={product.sku}
-                  onChange={(value) => handleInputChange("sku", value)}
-                />
-              </div>*/}
-              <div className="column_2">
-                <Input
-                  type="number"
-                  placeholder="Enter the product Price"
-                  icon={<Icons.TbCoin />}
-                  label="Price"
-                  value={product.price}
-                  onChange={(value) => handleInputChange("price", value)}
-                />
-              </div>
-              <div className="column_2">
-                <Input
-                  type="number"
-                  placeholder="Enter the product Price sale"
-                  icon={<Icons.TbCoin />}
-                  label="Price sale"
-                  value={product.priceSale}
-                  onChange={(value) => handleInputChange("priceSale", value)}
-                />
-              </div>
-              <div className="column_3">
-                <Input
-                  type="number"
-                  icon={<Icons.TbCoin />}
-                  placeholder="Cost Per Item"
-                  label="Cost Per Item"
-                  value={product.costPerItem}
-                  onChange={(value) => handleInputChange("costPerItem", value)}
-                />
-              </div>
-              <div className="column_3">
-                <Input
-                  type="number"
-                  placeholder="- -"
-                  label="Profit"
-                  readOnly={true}
-                  value={product.profit}
-                />
-              </div>
-              <div className="column_3">
-                <Input
-                  type="text"
-                  placeholder="- -"
-                  label="Margin"
-                  readOnly={true}
-                  value={`${product.margin ? product.margin.toFixed(2) : "- -"}%`}
-                />
-              </div>
-              {/*<div className="column_3">
-                <Input
-                  type="text"
-                  placeholder="Enter Barcode"
-                  label="Barcode (ISBN, UPC, GTIN, etc.)"
-                  icon={<Icons.TbScan />}
-                  value={product.barcode}
-                  onChange={(value) => handleInputChange("barcode", value)}
-                />
-              </div>*/}
-            </div>
-            <div className="content_item">
-              <h2 className="sub_heading">
-                <span>Variantions</span>
-                <Button
-                  label="add Variant"
-                  icon={<Icons.TbPlus />}
-                  onClick={openModal}
-                  className="sm"
-                />
-              </h2>
+              <h2 className="sub_heading">Thông tin bài hát</h2>
 
-              <table className="bordered">
-                <thead>
-                  <tr>
-                    <th>Variant</th>
-                    {Attributes.map((attribute,key) => (
-                      <th key={key}>{attribute.name}</th>
-                    ))}
-                    <th>Price</th>
-                    <th colSpan="2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Variations.map((variation,key) => (
-                    <tr key={key}>
-                      <td>{getAttributesString(variation.attributes)}</td>
-                      {Attributes.map((attribute) => (
-                        <td key={attribute.id}>
-                          {variation.attributes[attribute.name]
-                            ? variation.attributes[attribute.name]
-                            : "-"}
-                        </td>
-                      ))}
-                      <td>${variation.price.toFixed(2)}</td>
-                      <td className="td_action">
-                          <TableAction
-                            actionItems={actionItems}
-                            onActionItemClick={(item) =>
-                              handleActionItemClick(item, product.id)
-                            }
-                          />
-                        </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <Offcanvas isOpen={isOffcanvasOpen} onClose={handleCloseOffcanvas} className="lg">
-                <div className="offcanvas-head">
-                  <h2>black / medium / polyester</h2>
+              {errorMessage && (
+                <div
+                  className="error-message"
+                  style={{ color: "red", marginBottom: "15px" }}
+                >
+                  {errorMessage}
                 </div>
-                <div className="offcanvas-body">
-                  <div className="content_item">
-                    <h2 className="sub_heading">Options</h2>
-                    <div className="column_3">
-                      <Input
-                        type="text"
-                        placeholder="Enter the product Price"
-                        className="sm"
-                        label="Color"
-                        icon={<Icons.TbTrash className="trash"/>}
-                        value="Black"
-                        // onChange={(value) => handleInputChange("price", value)}
-                      />
-                    </div>
-                    <div className="column_3">
-                      <Input
-                        type="text"
-                        placeholder="Enter the product Price sale"
-                        className="sm"
-                        label="Size"
-                        icon={<Icons.TbTrash className="trash"/>}
-                        value="Medium"
-                        // onChange={(value) => handleInputChange("priceSale", value)}
-                      />
-                    </div>
-                    <div className="column_3">
-                      <Input
-                        type="text"
-                        placeholder="Enter the product Price sale"
-                        className="sm"
-                        label="Material"
-                        icon={<Icons.TbTrash className="trash"/>}
-                        value="Polyester"
-                        // onChange={(value) => handleInputChange("priceSale", value)}
-                      />
+              )}
+
+              <div className="column">
+                <Input
+                  type="text"
+                  placeholder="Nhập tên bài hát"
+                  label="Tên bài hát*"
+                  icon={<Icons.TbMusic />}
+                  value={fields.title}
+                  onChange={(value) => handleInputChange("title", value)}
+                />
+              </div>
+
+              <div className="column">
+                <div className="upload-container">
+                  <label>File âm thanh (MP3)*</label>
+                  <div
+                    className="file-upload-wrapper"
+                    style={{
+                      position: "relative",
+                      border: "1px dashed #ccc",
+                      borderRadius: "5px",
+                      padding: "15px",
+                      cursor: "pointer",
+                      backgroundColor: "#f9f9f9",
+                    }}
+                    onClick={() =>
+                      document.getElementById("audio-file-input").click()
+                    }
+                  >
+                    <input
+                      id="audio-file-input"
+                      type="file"
+                      accept="audio/mpeg,audio/mp3"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          console.log("File selected:", file.name);
+                          handleAudioUpload(file);
+                        }
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        opacity: 0,
+                        cursor: "pointer",
+                        zIndex: -1,
+                      }}
+                    />
+                    <div
+                      className="upload-ui"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                      }}
+                    >
+                      <Icons.TbUpload />
+                      <span>
+                        {fields.audio_file
+                          ? fields.audio_file.name
+                          : "Tải lên file MP3"}
+                      </span>
                     </div>
                   </div>
-                  <div className="content_item">
-                    <h2 className="sub_heading">Pricing</h2>
-                    <div className="column_2">
-                      <Input
-                        type="number"
-                        placeholder="Enter the product Price"
-                        className="sm"
-                        label="Variant Price"
-                        // value={product.price}
-                        // onChange={(value) => handleInputChange("price", value)}
-                      />
-                    </div>
-                    <div className="column_2">
-                      <Input
-                        type="number"
-                        placeholder="Enter the product Price sale"
-                        className="sm"
-                        label="Variant Price sale"
-                        // value={product.priceSale}
-                        // onChange={(value) => handleInputChange("priceSale", value)}
-                      />
-                    </div>
-                    <div className="column_3">
-                      <Input
-                        type="number"
-                        placeholder="Cost Per Item"
-                        className="sm"
-                        label="Variant Cost Per Item"
-                        // value={product.costPerItem}
-                        // onChange={(value) => handleInputChange("costPerItem", value)}
-                      />
-                    </div>
-                    <div className="column_3">
-                      <Input
-                        type="number"
-                        placeholder="- -"
-                        className="sm"
-                        label="Variant Profit"
-                        readOnly={true}
-                        value={product.profit}
-                      />
-                    </div>
-                    <div className="column_3">
-                      <Input
-                        type="text"
-                        placeholder="- -"
-                        className="sm"
-                        label="Variant Margin"
-                        readOnly={true}
-                        value={`${product.margin ? product.margin : "- -"}%`}
-                      />
-                    </div>
-                  </div>
+                  {fields.duration_ms > 0 && (
+                    <small>
+                      Thời lượng: {Math.floor(fields.duration_ms / 60000)}:
+                      {Math.floor((fields.duration_ms % 60000) / 1000)
+                        .toString()
+                        .padStart(2, "0")}
+                    </small>
+                  )}
                 </div>
-                <div className="offcanvas-footer">
-                  <Button
-                    label="close"
-                    className="outline"
-                    onClick={handleCloseOffcanvas}
-                  />
-                  <Button
-                    label="save"
-                    className=""
-                    onClick={handleCloseOffcanvas}
-                  />
-                </div>
-              </Offcanvas>
-
-              <Modal bool={isModalOpen} onClose={closeModal} className="sm">
-                <div className="modal-head">
-                  <h2>add variation</h2>
-                </div>
-                <div className="modal-body">
-                  
-                    <div className="content_item">
-                      <div className="column">
-                        <Dropdown
-                          placeholder="select attribute"
-                          label="Select attribute"
-                          selectedValue={selectedValue.attribute}
-                          onClick={handleAttributeSelect}
-                          options={attributeOption}
-                          className="sm"
-                        />
-                      </div>
-                      <Divider label={`${selectedValue.attribute} options`}>
-                        <Button label="add option" className="right text" />
-                      </Divider>
-                      <div className="column">
-                        <Input
-                          type="text"
-                          icon={<Icons.TbTrash className="trash" />}
-                          placeholder="Enter the product option"
-                          className="sm"
-                          // value={product.sku}
-                          // onChange={(value) => handleInputChange("sku", value)}
-                        />
-                      </div>
-                    </div>
-                </div>
-                <div className="modal-footer">
-                  <Button
-                    label="discard"
-                    onClick={closeModal}
-                    className="sm outline"
-                  />
-                  <Button
-                    label="save"
-                    onClick={closeModal}
-                    className="sm"
-                  />
-                </div>
-              </Modal>
+              </div>
             </div>
+
             <div className="content_item">
-              <h2 className="sub_heading">Add Question</h2>
-              <div className="column">
-                <Input
-                  type="text"
-                  placeholder="Enter the question"
-                  icon={<Icons.TbQuestionMark />}
-                  label="Question"
-                  value={product.question}
-                  onChange={(value) => handleInputChange("question", value)}
-                />
-              </div>
-              <div className="column">
-                <Textarea
-                  type="text"
-                  placeholder="Enter the Answer"
-                  icon={<Icons.TbCircleCheck />}
-                  label="Answer"
-                  value={product.answer}
-                  onChange={(value) => handleInputChange("answer", value)}
-                />
-              </div>
+              <h2 className="sub_heading">Thông tin bổ sung</h2>
 
-              <Button
-                label="Add Question"
-                icon={<Icons.TbCheck />}
-                className="sm right"
-                onClick={handleFaqQuestion}
-              />
-            </div>
-            {!faqs.length == 0 ? (
-              <div className="content_item">
-                <h2 className="sub_heading">FAQ's</h2>
-                {faqs.map((faq, key) => {
-                  return (
-                    <div className="column" key={key}>
-                      <Accordion title={faq.question}>
-                        <p>{faq.answer}</p>
-                      </Accordion>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              ""
-            )}
-            <div className="content_item meta_data">
-              <div className="column">
-                <span>Search engine listing</span>
-                <h2 className="meta_title">{product.metaTitle || product.name}</h2>
-                <p className="meta_link">{product.metaLink}</p>
-                <p className="meta_description">{product.metaDescription || product.description}</p>
-              </div>
               <div className="column">
                 <Input
-                  type="text"
-                  placeholder="Enter the meta title"
-                  label="Title"
-                  value={product.metaTitle || product.name}
-                  onChange={(value) => handleInputChange("metaTitle", value)}
-                />
-              </div>
-              <div className="column">
-                <Input
-                  type="text"
-                  placeholder="Enter the meta link"
-                  label="Link"
-                  value={`${product.metaLink}/${product.metaTitle || product.name}`}
-                  onChange={(value) => handleInputChange("metaLink", value)}
-                />
-              </div>
-              <div className="column">
-                <Textarea
-                  type="text"
-                  placeholder="Enter the meta description"
-                  label="Description"
-                  value={product.metaDescription || product.description}
-                  onChange={(value) => handleInputChange("metaDescription", value)}
+                  type="number"
+                  placeholder="Nhập số thứ tự bài hát"
+                  label="Số thứ tự bài hát"
+                  icon={<Icons.TbListNumbers />}
+                  value={fields.track_number}
+                  onChange={(value) => handleInputChange("track_number", value)}
                 />
               </div>
             </div>
           </div>
+
           <div className="sidebar">
             <div className="sidebar_item">
-              <h2 className="sub_heading">Publish</h2>
-              <Button
-                label="save & exit"
+              <h2 className="sub_heading">Tùy chọn</h2>
+              {/* <Button
+                label="Lưu & thoát"
                 icon={<Icons.TbDeviceFloppy />}
                 className=""
-              />
+                onClick={() => {
+                  handleSubmit();
+                }}
+                disabled={isSubmitting}
+              /> */}
               <Button
-                label="save"
+                label="Lưu"
                 icon={<Icons.TbCircleCheck />}
                 className="success"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
               />
             </div>
+
             <div className="sidebar_item">
-              <h2 className="sub_heading">Stock status</h2>
+              <h2 className="sub_heading">Album</h2>
               <div className="column">
                 <Dropdown
-                  placeholder="select stock status"
-                  selectedValue={selectedValue.stockValue}
-                  onClick={handleStockSelect}
-                  options={selectOptions}
-                  className="sm"
+                  placeholder="Chọn album"
+                  selectedValue={
+                    albums.find((a) => a.value === fields.album)?.label || ""
+                  }
+                  onClick={handleAlbumSelect}
+                  options={albums}
                 />
               </div>
-            </div>
-            <div className="sidebar_item">
-              <h2 className="sub_heading">Categories</h2>
-              <MultiSelect
-                className="sm"
-                isMulti={true}
-                options={category}
-                placeholder="Select options..."
-              />
-            </div>
-            <div className="sidebar_item">
-              <h2 className="sub_heading">
-                <span>quantity</span>
-              </h2>
-              <div className="column">
-                <Input
-                  type="number"
-                  placeholder="Enter the product quantity"
-                  value={product.quantity}
-                  onChange={(value) => handleInputChange("quantity", value)}
-                  className="sm"
-                />
-              </div>
-            </div>
-            <div className="sidebar_item">
-              <h2 className="sub_heading">Taxes</h2>
-              <div className="sidebar_checkboxes">
-                {taxes.map((tax) => (
-                  <CheckBox
-                    key={tax.id}
-                    id={tax.id}
-                    label={`${tax.name} ${tax.percentage}`}
-                    isChecked={tax.isChecked}
-                    onChange={(isChecked) => handleCheckTax(tax.id, isChecked)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="sidebar_item">
-              <h2 className="sub_heading">Product collections</h2>
-              <div className="sidebar_checkboxes">
-                {colloctions.map((collection) => (
-                  <CheckBox
-                    key={collection.id}
-                    id={collection.id}
-                    label={`${collection.name}`}
-                    isChecked={collection.isChecked}
-                    onChange={(isChecked) =>
-                      handleCheckCollection(collection.id, isChecked)
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="sidebar_item">
-              <h2 className="sub_heading">Labels</h2>
-              <div className="sidebar_checkboxes">
-                {labels.map((label) => (
-                  <CheckBox
-                    key={label.id}
-                    id={label.id}
-                    label={`${label.name}`}
-                    isChecked={label.isChecked}
-                    onChange={(isChecked) =>
-                      handleCheckLabels(label.id, isChecked)
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="sidebar_item">
-              <h2 className="sub_heading">tags</h2>
-              <Tagify
-                tagsData={Tags}
-              />
             </div>
           </div>
         </div>
@@ -682,4 +320,4 @@ const AddProduct = ({ productData }) => {
   );
 };
 
-export default AddProduct;
+export default AddTrack;

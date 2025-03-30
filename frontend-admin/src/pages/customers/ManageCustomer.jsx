@@ -1,6 +1,4 @@
 import * as Icons from "react-icons/tb";
-// Bỏ import dữ liệu tĩnh
-// import Customers from "../../api/Customers.json";
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Input from "../../components/common/Input.jsx";
@@ -21,11 +19,14 @@ const ManageCustomer = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedValue, setSelectedValue] = useState(5);
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [tableRow, setTableRow] = useState([
     { value: 2, label: "2" },
     { value: 5, label: "5" },
     { value: 10, label: "10" },
   ]);
+  const [filter, setFilter] = useState(null); // Thêm state để lưu trạng thái lọc
 
   // Lấy dữ liệu người dùng từ API
   // Lấy dữ liệu người dùng từ API
@@ -34,18 +35,22 @@ const ManageCustomer = () => {
       try {
         setLoading(true); // Add this back to show loading state
         console.log("Đang tải dữ liệu từ API...");
-        
+
         // Thay thế đoạn code fetch hiện tại bằng đoạn đơn giản sau
-const response = await fetch("http://localhost:8000/api/userz/list/", {
-  method: "GET",
-  // Không gửi headers xác thực
-});
-  
+        const response = await fetch("http://localhost:8000/api/userz/list/", {
+          method: "GET",
+          // Không gửi headers xác thực
+        });
+
         if (!response.ok) {
-          console.error("API không hoạt động:", response.status, response.statusText);
+          console.error(
+            "API không hoạt động:",
+            response.status,
+            response.statusText
+          );
           throw new Error(`API error: ${response.status}`);
         }
-  
+
         const data = await response.json();
         console.log("Dữ liệu nhận được từ API:", data);
         setCustomers(data);
@@ -58,7 +63,8 @@ const response = await fetch("http://localhost:8000/api/userz/list/", {
             username: "kietgemini9@gmail.com",
             name: "kietgemini9@gmail.com",
             email: "kietgemini9@gmail.com",
-            image: "https://lh3.googleusercontent.com/a/ACg8ocKMQDb9sPNgGDx14rJJhJ4LnXna6HFqr2g5w332xaLHosI4Jw=s96-c",
+            image:
+              "https://lh3.googleusercontent.com/a/ACg8ocKMQDb9sPNgGDx14rJJhJ4LnXna6HFqr2g5w332xaLHosI4Jw=s96-c",
             status: "Active",
             createdAt: "2025-03-18",
             role: "user",
@@ -68,11 +74,12 @@ const response = await fetch("http://localhost:8000/api/userz/list/", {
             username: "pvksdafffffffffffffAAA210504@gmail.com",
             name: "pvk21050AAAAAAAAAAAA4@gmail.com",
             email: "pvk210504@gmail.com",
-            image: "https://lh3.googleusercontent.com/a/ACg8ocIf8i9efjhegtgNuclCALN8B0kCA9GDW1X2GCPYy740oJ_wV_Lx4w=s96-c",
+            image:
+              "https://lh3.googleusercontent.com/a/ACg8ocIf8i9efjhegtgNuclCALN8B0kCA9GDW1X2GCPYy740oJ_wV_Lx4w=s96-c",
             status: "Active",
             createdAt: "2025-03-19",
             role: "admin",
-          }
+          },
         ];
         setCustomers(sampleData);
         setError(err.message);
@@ -80,18 +87,23 @@ const response = await fetch("http://localhost:8000/api/userz/list/", {
         setLoading(false); // Always set loading to false when done
       }
     };
-  
+
     fetchUsers();
   }, []);
 
   const bulkAction = [
-    { value: "delete", label: "Delete" },
-    { value: "category", label: "Category" },
-    { value: "status", label: "Status" },
+    { value: "all", label: "All" },
+    { value: "active", label: "Active" },
+    { value: "block", label: "Block" },
+    { value: "user", label: "User" },
+    { value: "admin", label: "Admin" },
+    { value: "superuser", label: "Superuser" },
+    { value: "staff", label: "Staff" },
   ];
-
   const bulkActionDropDown = (selectedOption) => {
-    console.log(selectedOption);
+    setFilter(selectedOption.value);
+    setCurrentPage(1);
+    console.log("Đã chọn filter:", selectedOption.value);
   };
 
   const onPageChange = (newPage) => {
@@ -122,29 +134,29 @@ const response = await fetch("http://localhost:8000/api/userz/list/", {
     setSelectedValue(selectedOption.label);
   };
 
-  const actionItems = ["Delete", "edit"];
+  const actionItems = ["edit", "Block", "Unblock"];
 
   const handleActionItemClick = async (item, itemID) => {
     var updateItem = item.toLowerCase();
-    if (updateItem === "delete") {
+    if (updateItem === "block") {
       if (confirm(`Bạn có chắc chắn muốn vô hiệu hóa người dùng #${itemID}?`)) {
         try {
           const response = await fetch(
-            `http://localhost:8000/api/users/${itemID}/deactivate/`,
+            `http://localhost:8000/api/userz/blockuser/${itemID}/`,
             {
-              method: "PUT",
+              method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "X-Requested-With": "XMLHttpRequest",
               },
+              body: JSON.stringify({}),
             }
           );
-    
+
           if (response.ok) {
-            setCustomers(prevCustomers => 
-              prevCustomers.map(customer => 
-                customer.id === itemID 
-                  ? { ...customer, status: 'Block' } 
+            setCustomers((prevCustomers) =>
+              prevCustomers.map((customer) =>
+                customer.id === itemID
+                  ? { ...customer, status: "Block" }
                   : customer
               )
             );
@@ -152,7 +164,9 @@ const response = await fetch("http://localhost:8000/api/userz/list/", {
           } else {
             const errorData = await response.json().catch(() => ({}));
             console.error("API error:", errorData);
-            alert(`Lỗi: ${errorData.message || "Không thể vô hiệu hóa người dùng"}`);
+            alert(
+              `Lỗi: ${errorData.message || "Không thể vô hiệu hóa người dùng"}`
+            );
           }
         } catch (error) {
           console.error("Lỗi kết nối:", error);
@@ -161,19 +175,99 @@ const response = await fetch("http://localhost:8000/api/userz/list/", {
       }
     } else if (updateItem === "edit") {
       navigate(`/customers/manage/${itemID}`);
+    } else if (updateItem === "unblock") {
+      if (confirm(`Bạn có chắc chắn muốn kích hoạt người dùng #${itemID}?`)) {
+        try {
+          const response = await fetch(
+            `http://localhost:8000/api/userz/unblock/${itemID}/`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({}),
+            }
+          );
+
+          if (response.ok) {
+            setCustomers((prevCustomers) =>
+              prevCustomers.map((customer) =>
+                customer.id === itemID
+                  ? { ...customer, status: "Active" }
+                  : customer
+              )
+            );
+            alert(`Đã kích hoạt người dùng #${itemID} thành công`);
+          } else {
+            const errorData = await response.json().catch(() => ({}));
+            console.error("API error:", errorData);
+            alert(
+              `Lỗi: ${errorData.message || "Không thể kích hoạt người dùng"}`
+            );
+          }
+        } catch (error) {
+          console.error("Lỗi kết nối:", error);
+          alert(`Lỗi kết nối: ${error.message}`);
+        }
+      }
     }
   };
+  const filteredCustomers = customers.filter((customer) => {
+    // Kiểm tra điều kiện tìm kiếm
+    const searchMatches =
+      !searchQuery ||
+      customer.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      customer.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      customer.email?.toLowerCase().includes(searchQuery.toLowerCase());
 
-  // Phân trang
+    // Nếu không khớp với tìm kiếm, loại bỏ ngay
+    if (!searchMatches) return false;
+
+    // Tiếp tục lọc theo filter từ dropdown
+    if (!filter || filter === "all") return true;
+
+    switch (filter) {
+      case "active":
+        return customer.status?.toLowerCase() === "active";
+      case "block":
+        return customer.status?.toLowerCase() !== "active";
+      case "user":
+        return customer.role === "user";
+      case "admin":
+        return customer.role === "admin";
+      case "superuser":
+        return (
+          customer.role === "user" &&
+          (customer.is_superuser === true || customer.is_superuser === 1)
+        );
+      case "staff":
+        return (
+          customer.role === "admin" &&
+          (customer.is_staff === true || customer.is_staff === 1)
+        );
+      default:
+        return true;
+    }
+  });
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
   const indexOfLastCustomer = currentPage * Number(selectedValue);
   const indexOfFirstCustomer = indexOfLastCustomer - Number(selectedValue);
-  const currentCustomers = customers.slice(
+  const currentCustomers = filteredCustomers.slice(
     indexOfFirstCustomer,
     indexOfLastCustomer
   );
 
-  
-
+  const formatDisplayName = (name) => {
+    if (!name) return "";
+    // Loại bỏ phần @gmail.com hoặc các dạng email khác
+    return name.replace(
+      /@gmail\.com|@yahoo\.com|@outlook\.com|@hotmail\.com/gi,
+      ""
+    );
+  };
   return (
     <section className="customer">
       <div className="container">
@@ -181,7 +275,7 @@ const response = await fetch("http://localhost:8000/api/userz/list/", {
           <div className="content transparent">
             <div className="content_head">
               <Dropdown
-                placeholder="Bulk Action"
+                placeholder="Filter"
                 className="sm"
                 onClick={bulkActionDropDown}
                 options={bulkAction}
@@ -189,14 +283,23 @@ const response = await fetch("http://localhost:8000/api/userz/list/", {
               <Input
                 placeholder="Search Customer..."
                 className="sm table_search"
+                value={searchQuery}
+                onChange={handleSearchChange}
               />
               <div className="btn_parent">
                 <Link to="/customers/add" className="sm button">
                   <Icons.TbPlus />
                   <span>Create Customer</span>
                 </Link>
-                <Button label="Advance Filter" className="sm" />
-                <Button label="save" className="sm" />
+                <Button
+                  label="Reset"
+                  className="sm"
+                  onClick={() => {
+                    setFilter(null);
+                    setSearchQuery(""); 
+                    setCurrentPage(1);
+                  }}
+                />
               </div>
             </div>
             <div className="content_body">
@@ -215,6 +318,7 @@ const response = await fetch("http://localhost:8000/api/userz/list/", {
                       <th colSpan="4">name</th>
                       <th>email</th>
                       <th>role</th>
+                      <th>Advance</th> {/* Thêm cột mới */}
                       <th className="td_status">status</th>
                       <th className="td_date">created at</th>
                       <th>actions</th>
@@ -239,18 +343,59 @@ const response = await fetch("http://localhost:8000/api/userz/list/", {
                                 customer.image ||
                                 `https://ui-avatars.com/api/?name=${encodeURIComponent(
                                   customer.username
-                                )}`
+                                )}&background=random&color=fff`
                               }
                               alt={customer.username}
+                              style={{
+                                width: "40px",
+                                height: "40px",
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                              }}
+                              onError={(e) => {
+                                // Fallback khi hình ảnh không tải được
+                                e.target.onerror = null;
+                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                  customer.username
+                                )}&background=random&color=fff`;
+                              }}
                             />
                           </td>
                           <td colSpan="4">
                             <Link to={customer.id.toString()}>
-                              {customer.name || customer.username}
+                              {formatDisplayName(
+                                customer.name || customer.username
+                              )}
                             </Link>
                           </td>
                           <td>{customer.email}</td>
+                          {/* Cột "role" chỉ hiển thị tên role */}
                           <td>{customer.role}</td>
+
+                          {/* Cột "role detail" mới hiển thị badge */}
+                          <td>
+                            {customer.role === "user" &&
+                              customer.is_superuser === true && (
+                                <Badge
+                                  label="Super"
+                                  className="light-warning"
+                                />
+                              )}
+                            {customer.role === "admin" &&
+                              customer.is_staff === true && (
+                                <Badge
+                                  label="Staff"
+                                  className="light-warning"
+                                />
+                              )}
+                            {/* Hiển thị "N/A" hoặc "-" nếu không có quyền đặc biệt */}
+                            {!(
+                              (customer.role === "user" &&
+                                customer.is_superuser === true) ||
+                              (customer.role === "admin" &&
+                                customer.is_staff === true)
+                            ) && <span style={{ color: "#999" }}>-</span>}
+                          </td>
                           <td className="td_status">
                             {customer.status.toLowerCase() === "active" ? (
                               <Badge
@@ -292,7 +437,8 @@ const response = await fetch("http://localhost:8000/api/userz/list/", {
               <Pagination
                 currentPage={currentPage}
                 totalPages={
-                  Math.ceil(customers.length / Number(selectedValue)) || 1
+                  Math.ceil(filteredCustomers.length / Number(selectedValue)) ||
+                  1
                 }
                 onPageChange={onPageChange}
               />

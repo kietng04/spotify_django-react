@@ -1,5 +1,4 @@
 import * as Icons from "react-icons/tb";
-import Products from "../../api/Products.json";
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Input from "../../components/common/Input.jsx";
@@ -13,40 +12,82 @@ import TableAction from "../../components/common/TableAction.jsx";
 import RangeSlider from "../../components/common/RangeSlider.jsx";
 import MultiSelect from "../../components/common/MultiSelect.jsx";
 
-const ManageProduct = () => {
+const ManageTrack = () => {
+  const [tracks, setTracks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [fields, setFields] = useState({
-    name: "",
-    sku: "",
-    store: "",
-    status: "",
-    priceRange: [0,100],
+    title: "",
+    album: "",
+    durationRange: [0, 300],
   });
   const [bulkCheck, setBulkCheck] = useState(false);
   const [specificChecks, setSpecificChecks] = useState({});
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedValue, setSelectedValue] = useState(5);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState(null);
+  
   const [tableRow, setTableRow] = useState([
     { value: 2, label: "2" },
     { value: 5, label: "5" },
     { value: 10, label: "10" },
   ]);
+
+  // Fetch tracks data
+  useEffect(() => {
+    const fetchTracks = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("http://localhost:8000/api/tracks/list/");
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setTracks(data);
+      } catch (error) {
+        console.error("Lỗi khi lấy danh sách bài hát:", error);
+        setError(error.message);
+        // Fallback sample data if API fails
+        setTracks([
+          {
+            id: 1,
+            title: "Yagi Wrath",
+            uri: "yagi-wrath-293158.mp3",
+            duration_ms: 66000,
+            track_number: 1,
+            album_id: 1,
+            created_at: "2025-03-14 15:54:15",
+            updated_at: "2025-03-14 15:54:15"
+          },
+          // More sample data...
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchTracks();
+  }, []);
+
   const handleInputChange = (key, value) => {
     setFields({
-      ...product,
+      ...fields,
       [key]: value,
     });
   };
-  const products = Products;
 
   const bulkAction = [
-    { value: "delete", label: "Delete" },
-    { value: "category", label: "Category" },
-    { value: "status", label: "Status" },
+    { value: "delete", label: "Xóa" },
+    { value: "album", label: "Đổi album" },
   ];
 
   const bulkActionDropDown = (selectedOption) => {
-    console.log(selectedOption);
+    setFilter(selectedOption.value);
+    setCurrentPage(1);
   };
 
   const onPageChange = (newPage) => {
@@ -57,8 +98,8 @@ const ManageProduct = () => {
     setBulkCheck(isCheck);
     if (isCheck) {
       const updateChecks = {};
-      products.forEach((product) => {
-        updateChecks[product.id] = true;
+      tracks.forEach((track) => {
+        updateChecks[track.id] = true;
       });
       setSpecificChecks(updateChecks);
     } else {
@@ -66,7 +107,7 @@ const ManageProduct = () => {
     }
   };
 
-  const handleCheckProduct = (isCheck, id) => {
+  const handleCheckTrack = (isCheck, id) => {
     setSpecificChecks((prevSpecificChecks) => ({
       ...prevSpecificChecks,
       [id]: isCheck,
@@ -77,14 +118,19 @@ const ManageProduct = () => {
     setSelectedValue(selectedOption.label);
   };
 
-  const actionItems = ["Delete", "edit"];
+  const actionItems = ["Delete", "edit", "play"];
 
   const handleActionItemClick = (item, itemID) => {
     var updateItem = item.toLowerCase();
     if (updateItem === "delete") {
-      alert(`#${itemID} item delete`);
+      if (confirm(`Bạn có chắc chắn muốn xóa bài hát #${itemID}?`)) {
+        alert(`Đã xóa bài hát #${itemID}`);
+      }
     } else if (updateItem === "edit") {
-      navigate(`/catalog/product/manage/${itemID}`);
+      navigate(`/tracks/edit/${itemID}`);
+    } else if (updateItem === "play") {
+      // Play the track logic
+      window.open(`http://localhost:8000/api/stream/${itemID}/`, "_blank");
     }
   };
 
@@ -101,128 +147,120 @@ const ManageProduct = () => {
   const handleSliderChange = (newValues) => {
     setFields({
       ...fields,
-      priceRange: newValues,
-    })
+      durationRange: newValues,
+    });
   };
 
-  const stores = [
-      { label: 'FashionFiesta' },
-      { label: 'TechTreasures' },
-      { label: 'GadgetGrove' },
-      { label: 'HomeHarbor' },
-      { label: 'HealthHaven' },
-      { label: 'BeautyBoutique' },
-      { label: "Bookworm's Haven" },
-      { label: 'PetParadise' },
-      { label: 'FoodieFinds' }
+  const albums = [
+    { label: 'Epic Sounds' },
+    { label: 'Summer Hits' },
+    { label: 'Corporate Music' },
+    { label: 'Love Songs' },
+    { label: 'Yoga & Meditation' },
   ];
-const status = [
-    { label: 'In Stock' },
-    { label: 'Out of Stock' },
-    { label: 'Available Soon' },
-    { label: 'Backorder' },
-    { label: 'Refurbished' },
-    { label: 'On Sale' },
-    { label: 'Limited Stock' },
-    { label: 'Discontinued' },
-    { label: 'Coming Soon' },
-    { label: 'New Arrival' },
-    { label: 'Preorder' },
-];
-  const handleSelectStore = (selectedValues) => {
+
+  const handleSelectAlbum = (selectedValues) => {
     setFields({
       ...fields,
-      store: selectedValues,
-    })
+      album: selectedValues,
+    });
   };
 
-  const handleSelectStatus = (selectedValues) => {
-    setFields({
-      ...fields,
-      status: selectedValues.label,
-    })
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
   };
 
+  // Format duration from milliseconds to mm:ss
+  const formatDuration = (duration_ms) => {
+    const totalSeconds = Math.floor(duration_ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Filter tracks based on search query
+  const filteredTracks = tracks.filter(track => {
+    const searchMatches = !searchQuery || 
+      track.title?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!searchMatches) return false;
+    
+    return true;
+  });
+
+  // Calculate pagination
+  const indexOfLastTrack = currentPage * Number(selectedValue);
+  const indexOfFirstTrack = indexOfLastTrack - Number(selectedValue);
+  const currentTracks = filteredTracks.slice(indexOfFirstTrack, indexOfLastTrack);
 
   return (
-    <section className="products">
+    <section className="tracks">
       <div className="container">
         <div className="wrapper">
           <div className="content transparent">
             <div className="content_head">
               <Dropdown
-                placeholder="Bulk Action"
+                placeholder="Tác vụ hàng loạt"
                 className="sm"
                 onClick={bulkActionDropDown}
                 options={bulkAction}
               />
               <Button
-                label="Advance Filter"
+                label="Bộ lọc nâng cao"
                 className="sm"
                 icon={<Icons.TbFilter />}
                 onClick={handleToggleOffcanvas}
               />
               <Input
-                placeholder="Search Product..."
+                placeholder="Tìm kiếm bài hát..."
                 className="sm table_search"
+                value={searchQuery}
+                onChange={handleSearchChange}
               />
               <Offcanvas
                 isOpen={isOffcanvasOpen}
                 onClose={handleCloseOffcanvas}
               >
                 <div className="offcanvas-head">
-                  <h2>Advance Search</h2>
+                  <h2>Tìm kiếm nâng cao</h2>
                 </div>
                 <div className="offcanvas-body">
                   <div className="column">
                     <Input
                       type="text"
-                      placeholder="Enter the product name"
-                      label="Name"
-                      value={fields.name}
-                      onChange={(value) => handleInputChange("name", value)}
-                    />
-                  </div>
-                  <div className="column">
-                    <Input
-                      type="text"
-                      label="Price"
-                      value={fields.price}
-                      placeholder="Enter the product price"
-                      onChange={(value) => handleInputChange("price", value)}
+                      placeholder="Nhập tên bài hát"
+                      label="Tên bài hát"
+                      value={fields.title}
+                      onChange={(value) => handleInputChange("title", value)}
                     />
                   </div>
                   <div className="column">
                     <MultiSelect
-                      options={stores}
-                      placeholder="Select Store"
-                      label="Store"
-                      isSelected={fields.store}
-                      onChange={handleSelectStore}
+                      options={albums}
+                      placeholder="Chọn album"
+                      label="Album"
+                      isSelected={fields.album}
+                      onChange={handleSelectAlbum}
                     />
                   </div>
                   <div className="column">
-                    <Dropdown
-                      options={status}
-                      placeholder="Select Store"
-                      label="Store"
-                      selectedValue={fields.status}
-                      onClick={handleSelectStatus}
+                    <RangeSlider 
+                      label="Thời lượng (giây)" 
+                      values={fields.durationRange} 
+                      onValuesChange={handleSliderChange} 
                     />
-                  </div>
-                  <div className="column">
-                    <RangeSlider label="Price range" values={fields.priceRange} onValuesChange={handleSliderChange} />
                   </div>
                 </div>
                 <div className="offcanvas-footer">
                   <Button
-                    label="Discard"
+                    label="Hủy bỏ"
                     className="sm outline"
                     icon={<Icons.TbX />}
                     onClick={handleCloseOffcanvas}
                   />
                   <Button
-                    label="Filter"
+                    label="Lọc"
                     className="sm"
                     icon={<Icons.TbFilter />}
                     onClick={handleCloseOffcanvas}
@@ -230,119 +268,95 @@ const status = [
                 </div>
               </Offcanvas>
               <div className="btn_parent">
-                <Link to="/catalog/product/add" className="sm button">
+                <Link to="/tracks/add" className="sm button">
                   <Icons.TbPlus />
-                  <span>Create Product</span>
+                  <span>Thêm bài hát</span>
                 </Link>
                 <Button
-                  label="Reload"
+                  label="Làm mới"
                   icon={<Icons.TbRefresh />}
                   className="sm"
                 />
               </div>
             </div>
             <div className="content_body">
-              <div className="table_responsive">
-                <table className="separate">
-                  <thead>
-                    <tr>
-                      <th className="td_checkbox">
-                        <CheckBox
-                          onChange={handleBulkCheckbox}
-                          isChecked={bulkCheck}
-                        />
-                      </th>
-                      <th className="td_id">id</th>
-                      <th className="td_image">image</th>
-                      <th colSpan="4">name</th>
-                      <th>price</th>
-                      <th>store</th>
-                      <th>sku</th>
-                      <th>created at</th>
-                      <th className="td_status">status</th>
-                      <th className="td_status">stock status</th>
-                      <th className="td_action">#</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.map((product, key) => {
-                      return (
-                        <tr key={key}>
-                          <td className="td_checkbox">
-                            <CheckBox
-                              onChange={(isCheck) =>
-                                handleCheckProduct(isCheck, product.id)
-                              }
-                              isChecked={specificChecks[product.id] || false}
-                            />
-                          </td>
-                          <td className="td_id">{product.id}</td>
-                          <td className="td_image">
-                            <img
-                              src={product.images.thumbnail}
-                              alt={product.name}
-                            />
-                          </td>
-                          <td colSpan="4">
-                            <Link to={product.id}>{product.name}</Link>
-                          </td>
-                          <td>
-                            {`${product.price} `}
-                            <b>{product.currency}</b>
-                          </td>
-                          <td>
-                            <Link>{product.brand}</Link>
-                          </td>
-                          <td>{product.sku}</td>
-                          <td>{product.availability_dates.start_date}</td>
-                          <td className="td_status">
-                            {product.ratings.average_rating}
-                          </td>
-                          <td className="td_status">
-                            {product.inventory.in_stock ? (
-                              <Badge
-                                label="In Stock"
-                                className="light-success"
+              {loading ? (
+                <div className="loading">Đang tải dữ liệu...</div>
+              ) : error ? (
+                <div className="error">Lỗi: {error}</div>
+              ) : (
+                <div className="table_responsive">
+                  <table className="separate">
+                    <thead>
+                      <tr>
+                        <th className="td_checkbox">
+                          <CheckBox
+                            onChange={handleBulkCheckbox}
+                            isChecked={bulkCheck}
+                          />
+                        </th>
+                        <th className="td_id">ID</th>
+                        <th>Tên bài hát</th>
+                        <th>File</th>
+                        <th>Thời lượng</th>
+                        <th>Track #</th>
+                        <th>Album ID</th>
+                        <th>Ngày tạo</th>
+                        <th>Cập nhật</th>
+                        <th className="td_action">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentTracks.map((track, key) => {
+                        return (
+                          <tr key={key}>
+                            <td className="td_checkbox">
+                              <CheckBox
+                                onChange={(isCheck) =>
+                                  handleCheckTrack(isCheck, track.id)
+                                }
+                                isChecked={specificChecks[track.id] || false}
                               />
-                            ) : product.inventory.quantity < 10 &&
-                              product.inventory.quantity > 0 ? (
-                              <Badge
-                                label="Low Stock"
-                                className="light-warning"
+                            </td>
+                            <td className="td_id">{track.id}</td>
+                            <td>
+                              <Link to={`/tracks/edit/${track.id}`}>{track.title}</Link>
+                            </td>
+                            <td>{track.uri}</td>
+                            <td>{formatDuration(track.duration_ms)}</td>
+                            <td>{track.track_number}</td>
+                            <td>{track.album_id}</td>
+                            <td>{new Date(track.created_at).toLocaleDateString()}</td>
+                            <td>{new Date(track.updated_at).toLocaleDateString()}</td>
+                            <td className="td_action">
+                              <TableAction
+                                actionItems={actionItems}
+                                onActionItemClick={(item) =>
+                                  handleActionItemClick(item, track.id)
+                                }
                               />
-                            ) : (
-                              <Badge
-                                label="Out of Stock"
-                                className="light-danger"
-                              />
-                            )}
-                          </td>
-                          <td className="td_action">
-                            <TableAction
-                              actionItems={actionItems}
-                              onActionItemClick={(item) =>
-                                handleActionItemClick(item, product.id)
-                              }
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
             <div className="content_footer">
               <Dropdown
                 className="top show_rows sm"
-                placeholder="please select"
+                placeholder="Hiển thị"
                 selectedValue={selectedValue}
                 onClick={showTableRow}
                 options={tableRow}
               />
               <Pagination
                 currentPage={currentPage}
-                totalPages={5}
+                totalPages={
+                  Math.ceil(filteredTracks.length / Number(selectedValue)) || 1
+                }
                 onPageChange={onPageChange}
               />
             </div>
@@ -353,4 +367,4 @@ const status = [
   );
 };
 
-export default ManageProduct;
+export default ManageTrack;

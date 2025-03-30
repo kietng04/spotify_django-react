@@ -16,7 +16,8 @@ from rest_framework.decorators import permission_classes
 from django.db.models import Q
 import sys
 import logging
-
+from django.utils.timezone import datetime
+from .models import Track, Album, Artist
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -542,62 +543,413 @@ from rest_framework.permissions import AllowAny
 
 from rest_framework.permissions import AllowAny
 
-@api_view(['PUT'])
-@authentication_classes([CustomTokenAuthentication])
-@permission_classes([IsAuthenticated])
-def deactivate_user(request, user_id):
-    """
-    Deactivate a user account (admin only).
-    """
-    try:
-        # Check if the requesting user is an admin
-        if request.user.role != 'admin':
-            return Response(
-                {"error": "Unauthorized. Only admins can deactivate users."}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        # Get the user to deactivate
-        user_to_deactivate = MyUser.objects.get(id=user_id)
-        
-        # Deactivate the user
-        user_to_deactivate.is_active = False
-        user_to_deactivate.save()
-        
-        return Response({
-            "message": f"User {user_to_deactivate.username} has been deactivated successfully."
-        }, status=status.HTTP_200_OK)
-        
-    except MyUser.DoesNotExist:
-        return Response(
-            {"error": "User not found"}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
-    except Exception as e:
-        return Response(
-            {"error": str(e)}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+
 from rest_framework.exceptions import AuthenticationFailed
 class PublicUserListView(APIView):
     permission_classes = [AllowAny]
-    authentication_classes = [CustomTokenAuthentication] 
+    authentication_classes = []
     
+   # Sửa trong class PublicUserListView
     def get(self, request):
         users = MyUser.objects.all()
         
         result = []
         for user in users:
+            # Xử lý đường dẫn hình ảnh đúng cách
+            avatarImg = user.avatarImg
+            if avatarImg:
+                if isinstance(avatarImg, str):
+                    # Kiểm tra nếu là URL bên ngoài (bắt đầu với http)
+                    if avatarImg.startswith(('http://', 'https://')):
+                        image_url = avatarImg  # Giữ nguyên URL bên ngoài
+                    else:
+                        # Nếu là đường dẫn local, thêm domain
+                        image_url = request.build_absolute_uri(f'/media/{avatarImg}')
+                else:
+                    # Nếu là đối tượng ImageField
+                    image_url = request.build_absolute_uri(avatarImg.url) if hasattr(avatarImg, 'url') else None
+            else:
+                image_url = None
+                
             user_data = {
                 'id': user.id,
                 'username': user.username,
-                'name': f"{user.first_name} {user.last_name}".strip(),
+                'name': f"{user.first_name} {user.last_name}".strip() or user.username,
                 'email': user.email,
-                'image': user.avatarImg.url if user.avatarImg and hasattr(user.avatarImg, 'url') else None,
+                'image': image_url,
                 'status': 'Active' if user.is_active else 'Inactive',
                 'createdAt': user.date_joined.strftime('%Y-%m-%d'),
                 'role': user.role,
+                'is_superuser': user.is_superuser,  # Thêm dòng này
+                'is_staff': user.is_staff,          # Thêm dòng này
             }
             result.append(user_data)
             
         return Response(result)
+
+
+class BlockUser(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    
+    def post(self, request, user_id):
+        try:
+            user_id = int(user_id)
+            user_to_block = MyUser.objects.get(id=user_id)
+            
+            # Lấy trạng thái từ request body nếu có
+            user_to_block.is_active = False
+            user_to_block.save()
+            
+            return Response({"message": f"Người dùng {user_to_block.username} đã bị chặn"}, status=200)
+        except Exception as e:
+            import traceback
+            print(f"Error: {str(e)}")
+            print(traceback.format_exc())
+            return Response({"error": str(e)}, status=500)
+        
+class Unblock(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    
+    def post(self, request, user_id):
+        try:
+            user_id = int(user_id)
+            user_to_unblock = MyUser.objects.get(id=user_id)
+            
+            # Lấy trạng thái từ request body nếu có
+            user_to_unblock.is_active = True
+            user_to_unblock.save()
+            
+            return Response({"message": f"Người dùng {user_to_unblock.username} đã được mở khóa"}, status=200)
+        except Exception as e:
+            import traceback
+            print(f"Error: {str(e)}")
+            print(traceback.format_exc())
+            return Response({"error": str(e)}, status=500)
+        
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny      
+class CreateUserView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    
+    def post(self, request):
+        try:
+            # Lấy dữ liệu từ request
+            username = request.data.get('username')
+            email = request.data.get('email')
+            password = request.data.get('password')
+            first_name = request.data.get('first_name', '')
+            last_name = request.data.get('last_name', '')
+            is_superuser = request.data.get('is_superuser', False)
+            is_staff = request.data.get('is_staff', False)
+            is_active = request.data.get('is_active', True)
+            avatarImg = request.data.get('avatarImg', None)
+            role = request.data.get('role', 'user')
+            
+            # Kiểm tra dữ liệu
+            if not username or not email or not password:
+                return Response({
+                    "detail": "Username, email và mật khẩu là bắt buộc"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Tạo người dùng mới
+            user = MyUser.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                is_superuser=is_superuser,
+                is_staff=is_staff,
+                is_active=is_active,
+                role=role
+            )
+            
+            # Xử lý ảnh đại diện nếu có
+            if avatarImg and avatarImg.startswith('data:image'):
+                # Tạo thư mục lưu hình nếu chưa tồn tại
+                import os
+                import base64
+                from django.conf import settings
+                from django.core.files.base import ContentFile
+                
+                UPLOAD_DIR = os.path.join(settings.MEDIA_ROOT, 'hinhanh')
+                if not os.path.exists(UPLOAD_DIR):
+                    os.makedirs(UPLOAD_DIR)
+                
+                # Xử lý chuỗi Base64
+                format, imgstr = avatarImg.split(';base64,')
+                ext = format.split('/')[-1]
+                filename = f"{username}_{user.id}.{ext}"
+                
+                # Lưu file vào folder hinhanh
+                data = ContentFile(base64.b64decode(imgstr))
+                file_path = os.path.join(UPLOAD_DIR, filename)
+                
+                with open(file_path, 'wb') as f:
+                    f.write(data.read())
+                
+                # Lưu đường dẫn trong database
+                user.avatarImg = f"hinhanh/{filename}"
+                user.save()
+                
+            return Response({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "message": "Người dùng đã được tạo thành công"
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            import traceback
+            print(f"Error creating user: {str(e)}")
+            print(traceback.format_exc())
+            return Response({
+                "detail": f"Lỗi khi tạo người dùng: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class UpdateUserView(APIView):
+    """API view để cập nhật thông tin người dùng"""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    
+    def put(self, request, user_id):
+        try:
+            # Tìm người dùng cần cập nhật
+            user = MyUser.objects.get(id=user_id)
+            
+            # Lấy dữ liệu từ request
+            username = request.data.get('username')
+            email = request.data.get('email')
+            password = request.data.get('password', None)
+            first_name = request.data.get('first_name', '')
+            last_name = request.data.get('last_name', '')
+            is_superuser = request.data.get('is_superuser', user.is_superuser)
+            is_staff = request.data.get('is_staff', user.is_staff)
+            is_active = request.data.get('is_active', user.is_active)
+            avatarImg = request.data.get('avatarImg', user.avatarImg)
+            role = request.data.get('role', user.role)
+            
+            # Kiểm tra dữ liệu
+            if not username or not email:
+                return Response({
+                    "detail": "Username và email là bắt buộc"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Kiểm tra username đã tồn tại chưa (nếu thay đổi)
+            if username != user.username and MyUser.objects.filter(username=username).exists():
+                return Response({
+                    "detail": "Tên đăng nhập đã tồn tại"
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            # Kiểm tra email đã tồn tại chưa (nếu thay đổi)
+            if email != user.email and MyUser.objects.filter(email=email).exists():
+                return Response({
+                    "detail": "Email đã tồn tại"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Cập nhật thông tin người dùng
+            user.username = username
+            user.email = email
+            user.first_name = first_name
+            user.last_name = last_name
+            user.is_superuser = is_superuser
+            user.is_staff = is_staff
+            user.is_active = is_active
+            user.role = role
+            
+            # Cập nhật mật khẩu nếu được cung cấp
+            if password:
+                user.set_password(password)
+            
+            # Xử lý ảnh đại diện nếu có thay đổi và là chuỗi base64
+            if avatarImg and avatarImg != user.avatarImg and avatarImg.startswith('data:image'):
+                # Tạo thư mục lưu hình nếu chưa tồn tại
+                import os
+                import base64
+                from django.conf import settings
+                from django.core.files.base import ContentFile
+                
+                UPLOAD_DIR = os.path.join(settings.MEDIA_ROOT, 'hinhanh')
+                if not os.path.exists(UPLOAD_DIR):
+                    os.makedirs(UPLOAD_DIR)
+                
+                # Xử lý chuỗi Base64
+                format, imgstr = avatarImg.split(';base64,')
+                ext = format.split('/')[-1]
+                filename = f"{username}_{user.id}.{ext}"
+                
+                # Lưu file vào folder hinhanh
+                data = ContentFile(base64.b64decode(imgstr))
+                file_path = os.path.join(UPLOAD_DIR, filename)
+                
+                with open(file_path, 'wb') as f:
+                    f.write(data.read())
+                
+                # Lưu đường dẫn trong database
+                user.avatarImg = f"hinhanh/{filename}"
+            
+            # Lưu thay đổi
+            user.save()
+                
+            # Trả về thông tin người dùng đã cập nhật
+            return Response({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "is_active": user.is_active,
+                "role": user.role,
+                "message": "Cập nhật người dùng thành công"
+            }, status=status.HTTP_200_OK)
+            
+        except MyUser.DoesNotExist:
+            return Response({
+                "detail": f"Không tìm thấy người dùng với ID {user_id}"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            import traceback
+            print(f"Error updating user: {str(e)}")
+            print(traceback.format_exc())
+            return Response({
+                "detail": f"Lỗi khi cập nhật người dùng: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class TrackListView(APIView):
+    """
+    API view để lấy danh sách tất cả tracks cho trang quản lý
+    """
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        try:
+            tracks = Track.objects.all().select_related('album').prefetch_related('artists')
+            
+            result = []
+            for track in tracks:
+                # Lấy tên nghệ sĩ
+                artists = track.artists.all()
+                artist_names = [artist.name for artist in artists]
+                
+                track_data = {
+                    'id': track.id,
+                    'title': track.title,
+                    'uri': track.uri,
+                    'duration_ms': track.duration_ms,
+                    'track_number': track.track_number,
+                    'disc_number': track.disc_number,
+                    'explicit': track.explicit,
+                    'popularity': track.popularity,
+                    'spotify_id': track.spotify_id,
+                    'preview_url': track.preview_url,
+                    'created_at': track.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'updated_at': track.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'album_id': track.album.id,
+                    'album_name': track.album.title,
+                    'artists': artist_names,
+                    'image': track.album.cover_image_url if hasattr(track.album, 'cover_image_url') else None
+                }
+                result.append(track_data)
+                
+            return Response(result)
+            
+        except Exception as e:
+            import traceback
+            print(f"Error fetching tracks: {str(e)}")
+            print(traceback.format_exc())
+            return Response({
+                "detail": f"Lỗi khi lấy danh sách tracks: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class AddTrackView(APIView):
+    """
+    API view để thêm bài hát mới
+    """
+    permission_classes = [AllowAny]  # Có thể thay đổi thành IsAuthenticated nếu cần xác thực
+    
+    def post(self, request):
+        try:
+            title = request.data.get('title')
+            album_id = request.data.get('album')
+            audio_file = request.FILES.get('audio_file')
+            duration_ms = request.data.get('duration_ms')
+            track_number = request.data.get('track_number', 1)
+            disc_number = request.data.get('disc_number', 1)
+            explicit = request.data.get('explicit', False)
+            popularity = request.data.get('popularity', 50)
+            
+            # Kiểm tra dữ liệu đầu vào
+            if not title or not album_id or not audio_file:
+                return Response({
+                    "detail": "Tên bài hát, album và file MP3 là bắt buộc"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Tìm album
+            try:
+                album = Album.objects.get(id=album_id)
+            except Album.DoesNotExist:
+                return Response({
+                    "detail": f"Không tìm thấy album với ID {album_id}"
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Lưu file MP3
+            import os
+            from django.conf import settings
+            
+            # Tạo thư mục lưu file nếu chưa tồn tại
+            UPLOAD_DIR = os.path.join(settings.MEDIA_ROOT, 'mp3')
+            if not os.path.exists(UPLOAD_DIR):
+                os.makedirs(UPLOAD_DIR)
+            
+            # Tạo tên file an toàn
+            safe_title = "".join([c if c.isalnum() else "-" for c in title])
+            filename = f"{safe_title}-{int(datetime.now().timestamp())}.mp3"
+            file_path = os.path.join(UPLOAD_DIR, filename)
+            
+            # Lưu file
+            with open(file_path, 'wb+') as destination:
+                for chunk in audio_file.chunks():
+                    destination.write(chunk)
+            
+            # Tạo bài hát mới
+            track = Track.objects.create(
+                title=title,
+                album=album,
+                uri=f"mp3/{filename}",
+                duration_ms=duration_ms,
+                track_number=track_number,
+                disc_number=disc_number,
+                explicit=explicit,
+                popularity=popularity
+            )
+            
+            # Thêm nghệ sĩ (mặc định là ID 1)
+            artist_ids = request.data.getlist('artists') or [1]
+            for artist_id in artist_ids:
+                try:
+                    artist = Artist.objects.get(id=artist_id)
+                    track.artists.add(artist)
+                except Artist.DoesNotExist:
+                    # Bỏ qua nếu không tìm thấy nghệ sĩ
+                    pass
+            
+            return Response({
+                "id": track.id,
+                "title": track.title,
+                "album": track.album.title,
+                "uri": track.uri,
+                "message": "Bài hát đã được thêm thành công"
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            import traceback
+            print(f"Error adding track: {str(e)}")
+            print(traceback.format_exc())
+            return Response({
+                "detail": f"Lỗi khi thêm bài hát: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

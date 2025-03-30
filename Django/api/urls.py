@@ -6,8 +6,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
 from .views import (UserViewSet, LoginView, LoginWithGoogleView, ConversationListView, UserSearchView, ConversationCreateView, ConversationSearchView,
-                   RandomTracksView, TrackSearchView, StreamAudioView, LikeTrackView, TokenValidationView, CheckLikeStatusView, LikedTracksView, MessageListView, AdminUserListView,deactivate_user,
-                   PublicUserListView)
+                   RandomTracksView, TrackSearchView, StreamAudioView, LikeTrackView, TokenValidationView, CheckLikeStatusView, LikedTracksView, MessageListView, AdminUserListView,
+                   PublicUserListView, BlockUser, Unblock, CreateUserView, UpdateUserView, TrackListView, AddTrackView)
 router = DefaultRouter()
 router.register('users', UserViewSet)
 
@@ -29,5 +29,11 @@ urlpatterns = [
     path('conversations/search/', ConversationSearchView.as_view(), name='conversation-search'),
     path('admin/users/', AdminUserListView.as_view(), name='admin-user-list'),
     path('userz/list/', PublicUserListView.as_view(), name='public-users-list'),
-    path('users/<int:user_id>/deactivate/', deactivate_user, name='deactivate-user')
+    path('userz/blockuser/<int:user_id>/', BlockUser.as_view(), name='block-user'),
+    path('userz/unblock/<int:user_id>/', Unblock.as_view(), name='unblock'),
+    path('userz/add/', CreateUserView.as_view(), name='create-user'),
+    path('userz/update/<int:user_id>/', UpdateUserView.as_view(), name='update-user'),  
+    path('tracks/list/', TrackListView.as_view(), name='tracks-list'),
+    path('tracks/add/', AddTrackView.as_view(), name='add-track'),
 ]
+

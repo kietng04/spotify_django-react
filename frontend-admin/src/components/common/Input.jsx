@@ -1,6 +1,22 @@
-import React from 'react';
+import React from "react";
 
-const Input = ({ className, type, placeholder, value, onChange,onClick, icon, max, label,valid, required, name, readOnly }) => {
+const Input = ({
+  className,
+  type,
+  placeholder,
+  value,
+  onChange,
+  onClick,
+  icon,
+  max,
+  label,
+  valid,
+  required,
+  name,
+  readOnly,
+  buttonIcon, // Thêm prop mới cho icon của nút
+  onButtonClick,
+}) => {
   const handleChange = (e) => {
     if (onChange) {
       onChange(e.target.value);
@@ -11,7 +27,7 @@ const Input = ({ className, type, placeholder, value, onChange,onClick, icon, ma
     if (onClick) {
       onClick();
     }
-  }
+  };
 
   const handleKeyDown = (event) => {
     if (event.keyCode === 38 || event.keyCode === 40) {
@@ -21,13 +37,19 @@ const Input = ({ className, type, placeholder, value, onChange,onClick, icon, ma
 
   return (
     <div className={`input_field ${className ? className : ""}`}>
-      {
-        label ? <label htmlFor={label}>{label}</label> : ''
-      }
+      {label ? <label htmlFor={label}>{label}</label> : ""}
       <div className="input_field_wrapper">
-        {
-          icon ? <label htmlFor={label} className={`input_icon ${onClick ? "click" : ""}`} onClick={handleInputClick}>{icon}</label> : ''
-        }
+        {icon ? (
+          <label
+            htmlFor={label}
+            className={`input_icon ${onClick ? "click" : ""}`}
+            onClick={handleInputClick}
+          >
+            {icon}
+          </label>
+        ) : (
+          ""
+        )}
         <input
           name={name}
           type={type}
@@ -41,11 +63,27 @@ const Input = ({ className, type, placeholder, value, onChange,onClick, icon, ma
           max={max}
           onKeyDown={handleKeyDown}
         />
+         {/* Thêm nút hiển thị/ẩn mật khẩu */}
+         {buttonIcon && (
+          <span 
+            className="input_button_icon" 
+            onClick={onButtonClick}
+            style={{
+              position: 'absolute',
+              right: '10px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              cursor: 'pointer',
+              color: '#666',
+              zIndex: 2
+            }}
+          >
+            {buttonIcon}
+          </span>
+        )}
       </div>
-      {
-        valid ? <small>{valid}</small> : ""
-      }
-      
+
+      {valid ? <small>{valid}</small> : ""}
     </div>
   );
 };
