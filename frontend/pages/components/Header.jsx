@@ -46,7 +46,7 @@ import PauseIcon from "../../images/commonicons/pauseicon.svg";
 import { playPauseAction } from "../../lib/tools";
 import { useRecoilValue } from "recoil";
 import { searchValue } from "../../atoms/searchAtom";
-import { FaGoogle, FaMusic, FaPlay, FaPause } from "react-icons/fa";
+import { FaGoogle, FaMusic, FaPlay, FaPause, FaStar } from "react-icons/fa";
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 
@@ -67,6 +67,7 @@ function Header() {
     token: '',
     expires: ''
   })
+  const [userRole, setUserRole] = useState(''); // Add this state for premium role
   const [randomTracks, setRandomTracks] = useState([]);
   const [isLoadingTracks, setIsLoadingTracks] = useState(false);
   const [currentPlayingId, setCurrentPlayingId] = useState(null);
@@ -92,6 +93,38 @@ function Header() {
   const [registerUsername, setRegisterUsername] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
+
+  // Function to fetch user profile with role
+  const fetchCurrentUserDetails = async (token) => {
+    if (!token) return;
+    
+    try {
+      alert(token)
+      const response = await fetch('http://localhost:8000/api/user-profile/', {
+        headers: {
+          'Authorization': `Token ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const userDetails = await response.json();
+        console.log('User details:', userDetails);
+        
+        // Update role state
+        setUserRole(userDetails.role);
+        
+        // Update userData with additional profile details
+        setUserData(prevData => ({
+          ...prevData,
+          role: userDetails.role
+        }));
+      } else {
+        console.error('Failed to fetch user details');
+      }
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+    }
+  };
 
   const fetchRandomTracks = async () => {
     setIsLoadingTracks(true);
@@ -167,12 +200,15 @@ function Header() {
 
   // Check for existing token on component mount
   useEffect(() => {
-
     const savedUserData = localStorage.getItem('spotify_user');
     
     if (savedUserData) {
+      const parsedData = JSON.parse(savedUserData);
       setIsLoggedIn(true);
-      setUserData(JSON.parse(savedUserData));
+      setUserData(parsedData);
+      
+      // Fetch current user details including role
+      fetchCurrentUserDetails(parsedData.token);
     }
   }, []);
 
@@ -198,7 +234,7 @@ function Header() {
           user_id: data.user_id,
           token: data.token,
           expires: data.expires,
-          avatarImg: data.avatarImg || user.photoURL
+          avatarImg: data.avatarImg || null
         });
         
         localStorage.setItem('spotify_user', JSON.stringify({
@@ -206,11 +242,14 @@ function Header() {
           user_id: data.user_id,
           token: data.token,
           expires: data.expires,
-          avatarImg: data.avatarImg || user.photoURL
+          avatarImg: data.avatarImg || null
         }));
         
         setIsLoggedIn(true);
         onClose();
+        
+        // Fetch user details after login
+        fetchCurrentUserDetails(data.token);
       } else {
         alert('Login failed: ' + (data.detail || 'Unknown error'));
       }
@@ -271,6 +310,8 @@ function Header() {
           console.log("Login success:", data);
           // set image to user photoURL
           
+          // Fetch user details after login
+          fetchCurrentUserDetails(data.token);
         } else {
           console.error('Login failed:', data);
           alert('Login failed: ' + (data.error || 'Unknown error'));
@@ -353,6 +394,7 @@ function Header() {
       token: '',
       expires: ''
     });
+    setUserRole('');
     localStorage.removeItem('spotify_user');
   };
 
@@ -447,7 +489,7 @@ function Header() {
 
       <div className="flex items-center absolute right-8">
         {isLoggedIn ? (
-          // Enhanced user profile display with username
+          // Enhanced user profile display with premium indicators
           <Menu>
             <MenuButton
               as={Button}
@@ -457,12 +499,48 @@ function Header() {
               minW={0}
             >
               <Flex alignItems="center">
-              <Avatar 
-                size="sm"
-                name={getInitials(userData.username)}
-                src={userData.avatarImg || DummyProfile.src} 
-                bg="green.500"
-              />
+                <Box position="relative">
+                  {userRole === 'premium' && (
+                    <Box
+                      position="absolute"
+                      top="-2px"
+                      left="-2px"
+                      right="-2px"
+                      bottom="-2px"
+                      borderRadius="full"
+                      borderWidth="2px"
+                      borderColor="gold"
+                      zIndex={1}
+                    />
+                  )}
+                  <Avatar 
+                    size="sm"
+                    name={getInitials(userData.username)}
+                    src={userData.avatarImg || DummyProfile.src} 
+                    bg={userRole === 'premium' ? "yellow.400" : "green.500"}
+                  />
+                  {userRole === 'premium' && (
+                    <Box
+                      position="absolute"
+                      bottom="-2px"
+                      right="-2px"
+                      bg="gold"
+                      borderRadius="full"
+                      p="1px"
+                      boxSize="14px"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      fontSize="10px"
+                      fontWeight="bold"
+                      color="black"
+                      border="1px solid black"
+                      zIndex={2}
+                    >
+                      <Icon as={FaStar} boxSize="8px" />
+                    </Box>
+                  )}
+                </Box>
                 <Text 
                   color="white" 
                   ml={2} 
@@ -470,6 +548,11 @@ function Header() {
                   display={{ base: 'none', md: 'block' }}
                 >
                   {userData.username}
+                  {userRole === 'premium' && (
+                    <Text as="span" color="gold" ml={1} fontSize="xs">
+                      (Premium)
+                    </Text>
+                  )}
                 </Text>
                 <TriangleDownIcon color="white" ml={1} boxSize={3} />
               </Flex>
@@ -682,7 +765,6 @@ function Header() {
       </Popover>
     </header>
   );
-  
 }
 
 export default Header;

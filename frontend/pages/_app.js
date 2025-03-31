@@ -78,8 +78,15 @@ function TokenValidator({ children }) {
 }
 
 function MyApp({ Component, pageProps }) {
+  const router = useRouter();
+  const path = router.pathname;
+  
+  // Check if current page is a payment page
+  const isPaymentPage = router.pathname.includes('/payment');
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Your existing code
     }
   }, []);
 
@@ -87,18 +94,23 @@ function MyApp({ Component, pageProps }) {
     <RecoilRoot>
       <ChakraProvider>
         <AuthProvider>
-          <UserProvider>  {/* Thêm UserProvider ở đây */}
+          <UserProvider>
             <TrackProvider>
-              {/* ChatWidget được chuyển ra ngoài TokenValidator */}
-              <ChatWidget />
+              {!isPaymentPage && <ChatWidget />}
               <TokenValidator>
-                <div id="home_header">
-                  <Header />
-                </div>
+                {!isPaymentPage && (
+                  <div id="home_header">
+                    <Header />
+                  </div>
+                )}
+                
                 <Component {...pageProps} />
-                <div id="player_section">
-                  <PlayerSection />
-                </div>
+                
+                {!isPaymentPage && (
+                  <div id="player_section">
+                    <PlayerSection />
+                  </div>
+                )}
               </TokenValidator>
             </TrackProvider>
           </UserProvider>
@@ -108,5 +120,4 @@ function MyApp({ Component, pageProps }) {
     </RecoilRoot>
   );
 }
-
 export default MyApp;

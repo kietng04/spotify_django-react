@@ -250,15 +250,13 @@ useEffect(() => {
           'Authorization': `Token ${tokenn}`,
           'Content-Type': 'application/json'
         }
-        
       });
+      
       if (response.ok) {
         const data = await response.json();
         console.log('Dữ liệu cuộc trò chuyện:', data);
-        
-        // In fetchConversations function, modify the formattedConversations mapping
+    
         const formattedConversations = data.map(conv => {
-          // Parse the timestamp from backend (assuming it's an ISO string)
           const convTime = conv.timestamp ? new Date(conv.timestamp) : new Date();
           
           return {
@@ -266,14 +264,22 @@ useEffect(() => {
             username: conv.other_user.username,
             user_id: conv.other_user.id,
             lastMessage: conv.last_message || 'Chưa có tin nhắn',
-            fullTimestamp: convTime.toISOString(), // Add this line
+            fullTimestamp: convTime.toISOString(),
             timestamp: convTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
             avatarImg: conv.other_user.avatarImg,
             unread: 0
           };
-        }).sort((a, b) => new Date(b.fullTimestamp) - new Date(a.fullTimestamp)); // Sort immediately
+        }).sort((a, b) => new Date(b.fullTimestamp) - new Date(a.fullTimestamp));
         
         setConversations(formattedConversations);
+        
+        // Check if conversation with Gemini AI (user_id = 1) already exists
+        const geminiConversation = formattedConversations.find(conv => conv.user_id === 1);
+        if (!geminiConversation) {
+          // If no conversation with Gemini AI exists, we might want to create it
+          // or just let the user initiate it when they click on Gemini AI in the list
+          console.log('Chưa có cuộc trò chuyện với Gemini AI');
+        }
       } else {
         const errorData = await response.json();
         console.error('Lỗi lấy cuộc trò chuyện:', errorData);
@@ -289,8 +295,6 @@ useEffect(() => {
     const userData = localStorage.getItem('spotify_user');
     const token = userData ? JSON.parse(userData).token : null;
 
-    
-    alert(token)
     if (!token) {
       console.error('Không có token, không thể tìm kiếm. Vui lòng đăng nhập lại.');
       // Maybe show a login prompt or error message to the user
@@ -459,125 +463,253 @@ const ensureWebSocketConnection = () => {
   return socket;
 };
 
-      const sendMessage = async (conversationId, content) => {
-        if (!content.trim()) return;
-        const currentTimestamp = new Date();
-        try {
-          console.log(`Gửi tin nhắn đến cuộc trò chuyện ${conversationId}: "${content}"`);
-          const activeSocket = socket?.readyState === WebSocket.OPEN ? 
-            socket : ensureWebSocketConnection();
-      
-          if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
-            const tempMsgId = `temp-${Date.now()}`;
+const sendMessage = async (conversationId, content) => {
+  if (!content.trim()) return;
+  const currentTimestamp = new Date();
+  
+  try {
+    // Check if this is a conversation with Gemini AI (user_id = 1)
+    const isGeminiConversation = activeConversation?.user_id === 1 || conversationId === "gemini-ai";
     
-            activeSocket.send(JSON.stringify({
-              type: 'chat_message',
-              conversation_id: conversationId,
-              message: content,
-              recipient_id: activeConversation.user_id
+    if (isGeminiConversation) {
+      console.log(`Gửi tin nhắn đến Gemini AI: "${content}"`);
+      
+      // Add user message to the UI immediately
+      const userMsg = {
+        id: `user-msg-${Date.now()}`,
+        sender: user?.user_id,
+        text: content,
+        timestamp: currentTimestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+      };
+      
+      setMessages(prev => [...prev, userMsg]);
+      setNewMessage(''); // Clear input field
+      
+      // Show typing indicator
+      const typingMsgId = `typing-${Date.now()}`;
+      setMessages(prev => [...prev, {
+        id: typingMsgId,
+        sender: 1, // Gemini AI user_id is 1
+        text: "Đang trả lời...",
+        timestamp: currentTimestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        isTyping: true
+      }]);
+      
+      // Call the backend Gemini AI endpoint
+      try {
+        const userDataString = localStorage.getItem('spotify_user');
+        const tokenz = userDataString ? JSON.parse(userDataString).token : null;
+        
+        const response = await fetch('http://localhost:8000/api/gemini/chat/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Token ${tokenz}`
+          },
+          body: JSON.stringify({
+            message: content
+          })
+        });
+        
+        // Remove typing indicator
+        setMessages(prev => prev.filter(msg => msg.id !== typingMsgId));
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Phản hồi từ Gemini AI:', data);
+          
+          // Add AI response to messages
+          const aiMsg = {
+            id: data.ai_message?.id || `ai-msg-${Date.now()}`,
+            sender: 1, // Gemini AI user_id is 1
+            text: data.ai_message?.text || "Xin lỗi, tôi không thể trả lời lúc này.",
+            timestamp: data.ai_message?.timestamp || currentTimestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+          };
+          
+          setMessages(prev => [...prev, aiMsg]);
+          
+          // Update conversation last message if in conversation list
+          if (activeConversation) {
+            setActiveConversation(prev => ({
+              ...prev,
+              lastMessage: aiMsg.text,
+              timestamp: aiMsg.timestamp
             }));
-            
-
-            const newMsg = {
-              id: tempMsgId,
-              sender: user?.user_id,
-              text: content,
-              timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-            };
-            
-            setMessages(prev => [...prev, newMsg]);
-            
-
-            setConversations(prev => {
-              const updatedConversations = prev.map(conv =>
-                conv.id === conversationId 
-                  ? { 
-                      ...conv, 
-                      lastMessage: content, 
+          }
+          
+          // Update conversations list if Gemini is in it
+          setConversations(prev => {
+            const geminiConv = prev.find(conv => conv.user_id === 1);
+            if (geminiConv) {
+              return prev.map(conv => 
+                conv.user_id === 1 
+                  ? {
+                      ...conv,
+                      lastMessage: aiMsg.text,
                       fullTimestamp: new Date().toISOString(),
-                      timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                    } 
+                      timestamp: aiMsg.timestamp
+                    }
                   : conv
-              );
-              
-              
-              return updatedConversations.sort((a, b) => {
+              ).sort((a, b) => {
                 if (a.fullTimestamp && b.fullTimestamp) {
                   return new Date(b.fullTimestamp) - new Date(a.fullTimestamp);
                 }
-                
-                const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp) : a.timestamp;
-                const timeB = typeof b.timestamp === 'string' ? new Date(b.timestamp) : b.timestamp;
-                return new Date(timeB) - new Date(timeA);
+                return 0;
               });
-            });
-            
-        
-            setNewMessage('');
-          } else {
-            console.log('WebSocket không khả dụng, sử dụng REST API');
-            const userDataString = localStorage.getItem('spotify_user');
-            const tokenz = userDataString ? JSON.parse(userDataString).token : null;
-           
-            const response = await fetch(`http://localhost:8000/api/messages/${conversationId}/`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Token ${tokenz}`
-              },
-              body: JSON.stringify({
-                content: content
-              })
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-              console.log('Tin nhắn đã gửi:', data);
-              
-              const newMsg = {
-                id: data.id,
-                sender: user?.user_id, 
-                text: content,
-                timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-              };
-              
-              setMessages(prev => [...prev, newMsg]);
-
-              setConversations(prev => {
-                const updatedConversations = prev.map(conv =>
-                  conv.id === conversationId 
-                    ? { 
-                        ...conv, 
-                        lastMessage: content, 
-                        timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                      } 
-                    : conv
-                );
-                
-             
-                return updatedConversations.sort((a, b) => {
-                  const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp) : a.timestamp;
-                  const timeB = typeof b.timestamp === 'string' ? new Date(b.timestamp) : b.timestamp;
-                  return new Date(timeB) - new Date(timeA);
-                });
-              });
-              
-              setNewMessage('');
-            } else {
-              const errorData = await response.json();
-              console.error('Lỗi gửi tin nhắn:', errorData);
             }
-          }
-        } catch (error) {
-          console.error('Lỗi kết nối hoặc xử lý:', error);
+            return prev;
+          });
+        } else {
+          console.error('Lỗi khi gọi API Gemini:', await response.text());
+          
+          // Add error message
+          setMessages(prev => [...prev, {
+            id: `error-${Date.now()}`,
+            sender: 1, // Gemini AI user_id is 1
+            text: "Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn.",
+            timestamp: currentTimestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+          }]);
         }
+      } catch (error) {
+        console.error('Lỗi kết nối API Gemini:', error);
+        
+        // Remove typing indicator and show error message
+        setMessages(prev => prev.filter(msg => msg.id !== typingMsgId));
+        setMessages(prev => [...prev, {
+          id: `error-${Date.now()}`,
+          sender: 1, // Gemini AI user_id is 1
+          text: "Xin lỗi, không thể kết nối với dịch vụ AI. Vui lòng thử lại sau.",
+          timestamp: currentTimestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        }]);
+      }
+      
+      return; // Exit early for Gemini AI
+    }
+    
+    // Regular conversation messaging logic
+    console.log(`Gửi tin nhắn đến cuộc trò chuyện ${conversationId}: "${content}"`);
+    const activeSocket = socket?.readyState === WebSocket.OPEN ? 
+      socket : ensureWebSocketConnection();
+
+    if (activeSocket && activeSocket.readyState === WebSocket.OPEN) {
+      // WebSocket is available, send message through it
+      const tempMsgId = `temp-${Date.now()}`;
+
+      activeSocket.send(JSON.stringify({
+        type: 'chat_message',
+        conversation_id: conversationId,
+        message: content,
+        recipient_id: activeConversation.user_id
+      }));
+      
+      // Add message to UI immediately (optimistic update)
+      const newMsg = {
+        id: tempMsgId,
+        sender: user?.user_id,
+        text: content,
+        timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
       };
+      
+      setMessages(prev => [...prev, newMsg]);
+      
+      // Update conversation in the list
+      setConversations(prev => {
+        const updatedConversations = prev.map(conv =>
+          conv.id === conversationId 
+            ? { 
+                ...conv, 
+                lastMessage: content, 
+                fullTimestamp: new Date().toISOString(),
+                timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+              } 
+            : conv
+        );
+        
+        return updatedConversations.sort((a, b) => {
+          if (a.fullTimestamp && b.fullTimestamp) {
+            return new Date(b.fullTimestamp) - new Date(a.fullTimestamp);
+          }
+          
+          const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp) : a.timestamp;
+          const timeB = typeof b.timestamp === 'string' ? new Date(b.timestamp) : b.timestamp;
+          return new Date(timeB) - new Date(timeA);
+        });
+      });
+      
+      setNewMessage(''); // Clear input field
+    } else {
+      // WebSocket not available, use REST API
+      console.log('WebSocket không khả dụng, sử dụng REST API');
+      const userDataString = localStorage.getItem('spotify_user');
+      const tokenz = userDataString ? JSON.parse(userDataString).token : null;
+     
+      const response = await fetch(`http://localhost:8000/api/messages/${conversationId}/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${tokenz}`
+        },
+        body: JSON.stringify({
+          content: content
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Tin nhắn đã gửi:', data);
+        
+        // Add message to UI
+        const newMsg = {
+          id: data.id,
+          sender: user?.user_id, 
+          text: content,
+          timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        };
+        
+        setMessages(prev => [...prev, newMsg]);
+
+        // Update conversation in the list
+        setConversations(prev => {
+          const updatedConversations = prev.map(conv =>
+            conv.id === conversationId 
+              ? { 
+                  ...conv, 
+                  lastMessage: content, 
+                  fullTimestamp: new Date().toISOString(),
+                  timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                } 
+              : conv
+          );
+          
+          return updatedConversations.sort((a, b) => {
+            if (a.fullTimestamp && b.fullTimestamp) {
+              return new Date(b.fullTimestamp) - new Date(a.fullTimestamp);
+            }
+            
+            const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp) : a.timestamp;
+            const timeB = typeof b.timestamp === 'string' ? new Date(b.timestamp) : b.timestamp;
+            return new Date(timeB) - new Date(timeA);
+          });
+        });
+        
+        setNewMessage(''); 
+      } else {
+        const errorData = await response.json();
+        console.error('Lỗi gửi tin nhắn:', errorData);
+      }
+    }
+  } catch (error) {
+    console.error('Lỗi kết nối hoặc xử lý:', error);
+  }
+};
+
     const openConversation = async (conversation) => {
       try {
         if (!conversation || !conversation.id) {
           console.error("Không thể mở cuộc trò chuyện không có ID");
           return;
         }
+        
         const userData = localStorage.getItem('spotify_user');
         const tokenz = userData ? JSON.parse(userData).token : null;
         console.log(`Mở cuộc trò chuyện ID: ${conversation.id}`);
@@ -588,13 +720,24 @@ const ensureWebSocketConnection = () => {
             'Authorization': `Token ${tokenz}`
           }
         });
-  
+
         if (response.ok) {
           const data = await response.json();
           console.log('Tin nhắn trong cuộc trò chuyện:', data);
-          setMessages(data);
           
-          // Đánh dấu cuộc trò chuyện đã đọc nếu có unread > 0
+          // If there are no messages and this is the Gemini AI conversation, add a welcome message
+          if (data.length === 0 && conversation.user_id === 1) {
+            setMessages([{
+              id: "welcome-msg",
+              sender: 1,
+              text: "Xin chào! Tôi là Gemini AI, trợ lý ảo của bạn. Tôi có thể giúp gì cho bạn?",
+              timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            }]);
+          } else {
+            setMessages(data);
+          }
+          
+          // Mark as read
           if (conversation.unread > 0) {
             setConversations(prev => 
               prev.map(conv => 
@@ -603,9 +746,6 @@ const ensureWebSocketConnection = () => {
                   : conv
               )
             );
-            
-            // Có thể gọi API để đánh dấu đã đọc trên server
-            // markConversationAsRead(conversation.id);
           }
         } else {
           const errorData = await response.json();
@@ -615,28 +755,19 @@ const ensureWebSocketConnection = () => {
         console.error('Lỗi kết nối hoặc xử lý:', error);
       }
     };
-    
-    // Xử lý chọn người dùng từ kết quả tìm kiếm
     const handleSelectUser = async (user) => {
       console.log('Đã chọn người dùng:', user);
       setSelectedUser(user);
       setSearchResults([]);
       
       try {
-        // Kiểm tra xem đã có cuộc trò chuyện với người này chưa
         const existingConversation = await findConversationWithUser(user.id);
-        if (existingConversation && existingConversation.id) { // Thêm kiểm tra id
+        if (existingConversation && existingConversation.id) { 
           console.log('Đã tìm thấy cuộc trò chuyện hiện có:', existingConversation);
-          
-          // Đóng modal tin nhắn mới
           closeNewMessageModal();
-          
-          // Mở cuộc trò chuyện đã tồn tại
           setActiveConversation(existingConversation);
           openConversation(existingConversation);
-        }
-        // Nếu không tìm thấy cuộc trò chuyện, không làm gì cả
-        // Người dùng sẽ nhập tin nhắn và bấm "Gửi" để tạo cuộc trò chuyện mới
+        }   
       } catch (error) {
         console.error("Lỗi khi tìm kiếm cuộc trò chuyện:", error);
       }
@@ -649,23 +780,18 @@ const ensureWebSocketConnection = () => {
       }
       
       try {
-        // Kiểm tra xem đã có cuộc trò chuyện giữa người dùng hiện tại và người được chọn chưa
         const existingConversation = await findConversationWithUser(selectedUser.id);
         
         if (existingConversation) {
-          // Nếu đã có cuộc trò chuyện, mở nó lên
           console.log('Đã tìm thấy cuộc trò chuyện hiện có:', existingConversation);
           closeNewMessageModal();
           setActiveConversation(existingConversation);
           openConversation(existingConversation);
-          
-          // Nếu có tin nhắn khởi tạo, gửi nó vào cuộc trò chuyện hiện có
           if (initialMessage.trim()) {
             sendMessage(existingConversation.id, initialMessage);
             setInitialMessage('');
           }
         } else {
-          // Nếu chưa có cuộc trò chuyện, tạo mới với tin nhắn đầu tiên
           console.log('Chưa có cuộc trò chuyện, tạo mới với:', selectedUser.username);
           createConversation();
         }
@@ -694,12 +820,10 @@ const ensureWebSocketConnection = () => {
       setInitialMessage('');
     };
     
-    // Handle message input change
     const handleMessageChange = (e) => setNewMessage(e.target.value);
     const handleInitialMessageChange = (e) => setInitialMessage(e.target.value);
     const handleSearchChange = (e) => setSearchTerm(e.target.value);
     
-    // Handle form submit
     const handleSubmit = (e) => {
       e.preventDefault();
       if (!activeConversation || !newMessage.trim()) return;
@@ -707,12 +831,10 @@ const ensureWebSocketConnection = () => {
       sendMessage(activeConversation.id, newMessage);
     };
   
-    // Format timestamp
+   
     const formatTimestamp = (timestamp) => {
       if (!timestamp) return '';
-      // Nếu là string, sử dụng trực tiếp
       if (typeof timestamp === 'string') return timestamp;
-      // Nếu là Date object, format nó
       return new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     };
 
@@ -793,33 +915,40 @@ const ensureWebSocketConnection = () => {
                   display="flex"
                   flexDirection="column"
                 >
-                  {messages.map((msg, index) => (
-                    <Flex
-                      key={msg.id || index}
-                      justifyContent={msg.sender === user?.user_id ? "flex-end" : "flex-start"}
-                      width="100%"
-                      mb={2}
-                    >
-                      <Box
-                        bg={msg.sender === user?.user_id ? "green.500" : "white"}
-                        color={msg.sender === user?.user_id ? "white" : "black"}
-                        borderRadius="lg"
-                        px={3}
-                        py={2}
-                        maxW="80%"
-                        boxShadow="sm"
-                        ref={index === messages.length - 1 ? lastMessageRef : null}
-                        borderTopRightRadius={msg.sender === user?.user_id ? 0 : "lg"}
-                        borderTopLeftRadius={msg.sender === user?.user_id ? "lg" : 0}
-                        wordBreak="break-word"
-                      >
-                        <Text>{msg.text}</Text>
-                        <Text fontSize="xs" color={msg.sender === user?.user_id ? "white" : "gray.500"} textAlign="right">
-                          {formatTimestamp(msg.timestamp)}
-                        </Text>
-                      </Box>
-                    </Flex>
-                  ))}
+                 {messages.map((msg, index) => (
+                <Flex
+                  key={msg.id || index}
+                  justifyContent={msg.sender === user?.user_id ? "flex-end" : "flex-start"}
+                  width="100%"
+                  mb={2}
+                >
+                  <Box
+                    bg={msg.sender === user?.user_id ? "green.500" : "white"}
+                    color={msg.sender === user?.user_id ? "white" : "black"}
+                    borderRadius="lg"
+                    px={3}
+                    py={2}
+                    maxW="80%"
+                    boxShadow="sm"
+                    ref={index === messages.length - 1 ? lastMessageRef : null}
+                    borderTopRightRadius={msg.sender === user?.user_id ? 0 : "lg"}
+                    borderTopLeftRadius={msg.sender === user?.user_id ? "lg" : 0}
+                    wordBreak="break-word"
+                  >
+                    {msg.isTyping ? (
+                      <Flex align="center">
+                        <Text mr={2}>Đang trả lời</Text>
+                        <Spinner size="xs" color={msg.sender === user?.user_id ? "white" : "green.500"} />
+                      </Flex>
+                    ) : (
+                      <Text>{msg.text}</Text>
+                    )}
+                    <Text fontSize="xs" color={msg.sender === user?.user_id ? "white" : "gray.500"} textAlign="right">
+                      {formatTimestamp(msg.timestamp)}
+                    </Text>
+                  </Box>
+                </Flex>
+              ))}
                 </Box>
                 
                 {/* Message input - fixed at bottom */}
@@ -857,43 +986,45 @@ const ensureWebSocketConnection = () => {
                   <Flex justify="center" align="center" h="100%">
                     <Spinner color="green.500" />
                   </Flex>
-                ) : conversations.length > 0 ? (
-                  conversations.map((conv) => (
-                    <Flex
-                      key={conv.id}
-                      p={3}
-                      alignItems="center"
-                      cursor="pointer"
-                      _hover={{ bg: "gray.50" }}
-                      bg={activeConversation?.id === conv.id ? "gray.100" : "white"}
-                      borderBottom="1px solid"
-                      borderColor="gray.100"
-                      onClick={() => openConversation(conv)}
-                    >
-                      <Avatar
-                        size="md"
-                        name={conv.username}
-                        src={conv.avatarImg ? formatImageUrl(conv.avatarImg) : undefined}
-                        mr={3}
-                      />
-                      <Box flex="1" overflow="hidden">
-                        <Flex justify="space-between" align="center" mb={1}>
-                          <Text fontWeight="semibold" noOfLines={1}>{conv.username}</Text>
-                          <Text fontSize="xs" color="gray.500">{formatTimestamp(conv.timestamp)}</Text>
-                        </Flex>
-                        <Flex alignItems="center">
-                          <Text fontSize="sm" color="gray.600" noOfLines={1} flex="1">
-                            {conv.lastMessage}
-                          </Text>
-                          {conv.unread > 0 && (
-                            <Badge ml={1} colorScheme="green" borderRadius="full" px={2}>
-                              {conv.unread}
-                            </Badge>
-                          )}
-                        </Flex>
-                      </Box>
-                    </Flex>
-                  ))
+                ) : conversations.length >= 0 ? (
+                  <>
+                    {conversations.map((conv) => (
+                      <Flex
+                        key={conv.id}
+                        p={3}
+                        alignItems="center"
+                        cursor="pointer"
+                        _hover={{ bg: "gray.50" }}
+                        bg={activeConversation?.id === conv.id ? "gray.100" : "white"}
+                        borderBottom="1px solid"
+                        borderColor="gray.100"
+                        onClick={() => openConversation(conv)}
+                      >
+                        <Avatar
+                          size="md"
+                          name={conv.username}
+                          src={conv.avatarImg ? formatImageUrl(conv.avatarImg) : undefined}
+                          mr={3}
+                        />
+                        <Box flex="1" overflow="hidden">
+                          <Flex justify="space-between" align="center" mb={1}>
+                            <Text fontWeight="semibold" noOfLines={1}>{conv.username}</Text>
+                            <Text fontSize="xs" color="gray.500">{formatTimestamp(conv.timestamp)}</Text>
+                          </Flex>
+                          <Flex alignItems="center">
+                            <Text fontSize="sm" color="gray.600" noOfLines={1} flex="1">
+                              {conv.lastMessage}
+                            </Text>
+                            {conv.unread > 0 && (
+                              <Badge ml={1} colorScheme="green" borderRadius="full" px={2}>
+                                {conv.unread}
+                              </Badge>
+                            )}
+                          </Flex>
+                        </Box>
+                      </Flex>
+                    ))}
+                  </>
                 ) : (
                   <Flex direction="column" justify="center" align="center" h="100%" p={4}>
                     <Text mb={4} color="gray.600">Chưa có cuộc trò chuyện nào.</Text>
@@ -1011,5 +1142,4 @@ const ensureWebSocketConnection = () => {
         </Button>
       </Box>
     );
-
-}
+  }
