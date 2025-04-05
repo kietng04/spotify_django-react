@@ -234,7 +234,8 @@ function Header() {
           user_id: data.user_id,
           token: data.token,
           expires: data.expires,
-          avatarImg: data.avatarImg || null
+          avatarImg: data.avatarImg || user.photoURL,
+          role: data.role 
         });
         
         localStorage.setItem('spotify_user', JSON.stringify({
@@ -242,7 +243,8 @@ function Header() {
           user_id: data.user_id,
           token: data.token,
           expires: data.expires,
-          avatarImg: data.avatarImg || null
+          avatarImg: data.avatarImg || user.photoURL,
+          role: data.role
         }));
         
         setIsLoggedIn(true);
@@ -292,7 +294,8 @@ function Header() {
             user_id: data.user_id,
             token: data.token,
             expires: data.expires,
-            avatarImg: data.avatarImg || user.photoURL
+            avatarImg: data.avatarImg || user.photoURL,
+            role: data.role
           });
           
   
@@ -301,7 +304,8 @@ function Header() {
             user_id: data.user_id,
             token: data.token,
             expires: data.expires,
-            avatarImg: data.avatarImg || user.photoURL
+            avatarImg: data.avatarImg || user.photoURL,
+            role: data.role
           }));
           
           setIsLoggedIn(true);
@@ -575,6 +579,8 @@ function Header() {
               >
                 Account settings
               </MenuItem>
+               {/* Chỉ hiển thị nút Admin cho người dùng có role admin */}
+ 
               <MenuItem
                 _hover={{ backgroundColor: "#3F3D3C" }}
                 bg="#292928"

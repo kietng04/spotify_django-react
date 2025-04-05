@@ -5,10 +5,37 @@ from .views import StreamAudioView
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
-from .views import (UserViewSet, LoginView, LoginWithGoogleView, ConversationListView, UserSearchView, ConversationCreateView, ConversationsSearchView, ZaloPayView,
-          RandomTracksView, TrackSearchView, StreamAudioView, LikeTrackView, TokenValidationView, CheckLikeStatusView, LikedTracksView, MessageListView, GeminiAIView)
+from .views import (
+    AddTrackView,
+    AdminUserListView,
+    BlockUser,
+    CheckLikeStatusView,
+    ConversationCreateView,
+    ConversationListView,
+    ConversationSearchView,
+    ConversationsSearchView,
+    CreateUserView,
+    GeminiAIView,
+    LikedTracksView,
+    LikeTrackView,
+    LoginView,
+    LoginWithGoogleView,
+    MessageListView,
+    PublicUserListView,
+    RandomTracksView,
+    StreamAudioView,
+    TokenValidationView,
+    TrackListView,
+    TrackSearchView,
+    Unblock,
+    UpdateUserView,
+    UserSearchView,
+    UserViewSet,
+    ZaloPayView
+)
 router = DefaultRouter()
 router.register('users', UserViewSet)
+
 urlpatterns = [
     path('', include(router.urls)),
     path('login/', LoginView.as_view(), name='login'),
@@ -24,9 +51,18 @@ urlpatterns = [
     path('conversations/', ConversationListView.as_view(), name='conversations'),
     path('user-search/', UserSearchView.as_view(), name='user-search'),
     path('conversations/create/', ConversationCreateView.as_view(), name='conversation-create'),
-    path('conversations/search/', ConversationsSearchView.as_view(), name='conversation-search'),
+    path('conversations/search/', ConversationSearchView.as_view(), name='conversation-search'),
+    path('admin/users/', AdminUserListView.as_view(), name='admin-user-list'),
+    path('userz/list/', PublicUserListView.as_view(), name='public-users-list'),
+    path('userz/blockuser/<int:user_id>/', BlockUser.as_view(), name='block-user'),
+    path('userz/unblock/<int:user_id>/', Unblock.as_view(), name='unblock'),
+    path('userz/add/', CreateUserView.as_view(), name='create-user'),
+    path('userz/update/<int:user_id>/', UpdateUserView.as_view(), name='update-user'),  
+    path('tracks/list/', TrackListView.as_view(), name='tracks-list'),
+    path('tracks/add/', AddTrackView.as_view(), name='add-track'),
     path('zalopay/', ZaloPayView.as_view(), name='zalopay'),
     path('verify-payment/', views.VerifyPaymentView.as_view(), name='verify-payment'),
     path('user-profile/', views.UserProfileView.as_view(), name='user-profile'),
     path('gemini/chat/', GeminiAIView.as_view(), name='gemini-chat'),
 ]
+

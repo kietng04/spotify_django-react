@@ -64,6 +64,8 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',
     ],
+        'UNAUTHENTICATED_USER': None,  # Thêm dòng này
+
 }
 
 MIDDLEWARE = [
@@ -163,8 +165,16 @@ AUTHENTICATION_BACKENDS = [
 
 AUTH_USER_MODEL = 'api.MyUser'
 
-CORS_ALLOW_ALL_ORIGINS = True
-
+CORS_ALLOW_ALL_ORIGINS = True 
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 
 AWS_ACCESS_KEY_ID = 'AKIAS74TME7CSCNZESUU'
 AWS_SECRET_ACCESS_KEY = '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'
@@ -200,3 +210,21 @@ LOGGING = {
     },
 }
 
+import re
+EXEMPT_URLS = [
+    re.compile(r'^/api/users/list/$'),
+    re.compile(r'^/api/login/$'),
+    re.compile(r'^/api/google-auth/$'),
+    re.compile(r'^/api/random-tracks/$'),
+]
+
+import os
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Thêm dòng này nếu chưa có
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
