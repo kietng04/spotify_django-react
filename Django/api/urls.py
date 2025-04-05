@@ -5,9 +5,34 @@ from .views import StreamAudioView
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
-from .views import (UserViewSet, LoginView, LoginWithGoogleView, ConversationListView, UserSearchView, ConversationCreateView, ConversationSearchView,
-                   RandomTracksView, TrackSearchView, StreamAudioView, LikeTrackView, TokenValidationView, CheckLikeStatusView, LikedTracksView, MessageListView, AdminUserListView,
-                   PublicUserListView, BlockUser, Unblock, CreateUserView, UpdateUserView, TrackListView, AddTrackView)
+from .views import (
+    AddTrackView,
+    AdminUserListView,
+    BlockUser,
+    CheckLikeStatusView,
+    ConversationCreateView,
+    ConversationListView,
+    ConversationSearchView,
+    ConversationsSearchView,
+    CreateUserView,
+    GeminiAIView,
+    LikedTracksView,
+    LikeTrackView,
+    LoginView,
+    LoginWithGoogleView,
+    MessageListView,
+    PublicUserListView,
+    RandomTracksView,
+    StreamAudioView,
+    TokenValidationView,
+    TrackListView,
+    TrackSearchView,
+    Unblock,
+    UpdateUserView,
+    UserSearchView,
+    UserViewSet,
+    ZaloPayView
+)
 router = DefaultRouter()
 router.register('users', UserViewSet)
 
@@ -35,5 +60,9 @@ urlpatterns = [
     path('userz/update/<int:user_id>/', UpdateUserView.as_view(), name='update-user'),  
     path('tracks/list/', TrackListView.as_view(), name='tracks-list'),
     path('tracks/add/', AddTrackView.as_view(), name='add-track'),
+    path('zalopay/', ZaloPayView.as_view(), name='zalopay'),
+    path('verify-payment/', views.VerifyPaymentView.as_view(), name='verify-payment'),
+    path('user-profile/', views.UserProfileView.as_view(), name='user-profile'),
+    path('gemini/chat/', GeminiAIView.as_view(), name='gemini-chat'),
 ]
 
