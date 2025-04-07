@@ -3,7 +3,7 @@ import NotFound from "../../pages/error/NotFound";
 import Dashboard from "../../pages/dashboard/Overview";
 
 // Media
-import Media from "../../pages/media/Media.jsx";
+// import Media from "../../pages/media/Media.jsx";
 
 // Settings
 import Api from "../../pages/settings/Api";

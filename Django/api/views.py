@@ -954,9 +954,9 @@ class GeminiAIView(APIView):
                     'is_read': ai_message.is_read
                 }
             })
-         except Exception as e:
-           logger.error(f"Error in GeminiAIView.post: {str(e)}")
-           return Response({"error": str(e)}, status=500)
+        except Exception as e:
+            logger.error(f"Error in GeminiAIView.post: {str(e)}")
+            return Response({"error": str(e)}, status=500)
     
 class AdminUserListView(APIView):
     authentication_classes = [CustomTokenAuthentication]
