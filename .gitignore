@@ -13,10 +13,8 @@ ENV/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-media/
 
-# User uploaded content
-media/avatars/
+
 
 # Database
 *.sqlite3
