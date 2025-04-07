@@ -31,6 +31,14 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from django.contrib.auth.hashers import make_password
 from google import genai
+import os
+import base64
+from django.conf import settings
+from django.core.files.base import ContentFile
+import os
+from django.conf import settings
+
+
 GEMINI_API_KEY = "AIzaSyCDBht1ZEgJStn-ycfpFGdWr599E6XC5WA"
 client = genai.Client(api_key=GEMINI_API_KEY)
 
@@ -936,7 +944,6 @@ class GeminiAIView(APIView):
                 is_read=False
             )
             
-            # Return both messages
             return Response({
                 'conversation_id': conversation.id,
                 'user_message': {
@@ -954,16 +961,16 @@ class GeminiAIView(APIView):
                     'is_read': ai_message.is_read
                 }
             })
-         except Exception as e:
+        except Exception as e:
            logger.error(f"Error in GeminiAIView.post: {str(e)}")
            return Response({"error": str(e)}, status=500)
-    
+        
+
 class AdminUserListView(APIView):
     authentication_classes = [CustomTokenAuthentication]
     permission_classes = [IsAuthenticated]
     def get(self, request):
         try:
-            # Kiểm tra nếu người dùng là admin
             if request.user.role != 'admin':
                 return Response({"error": "Không có quyền truy cập"}, status=status.HTTP_403_FORBIDDEN)
             
@@ -1000,24 +1007,19 @@ class PublicUserListView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
     
-   # Sửa trong class PublicUserListView
     def get(self, request):
         users = MyUser.objects.all()
         
         result = []
         for user in users:
-            # Xử lý đường dẫn hình ảnh đúng cách
             avatarImg = user.avatarImg
             if avatarImg:
                 if isinstance(avatarImg, str):
-                    # Kiểm tra nếu là URL bên ngoài (bắt đầu với http)
                     if avatarImg.startswith(('http://', 'https://')):
                         image_url = avatarImg  # Giữ nguyên URL bên ngoài
                     else:
-                        # Nếu là đường dẫn local, thêm domain
                         image_url = request.build_absolute_uri(f'/media/{avatarImg}')
                 else:
-                    # Nếu là đối tượng ImageField
                     image_url = request.build_absolute_uri(avatarImg.url) if hasattr(avatarImg, 'url') else None
             else:
                 image_url = None
@@ -1048,7 +1050,6 @@ class BlockUser(APIView):
             user_id = int(user_id)
             user_to_block = MyUser.objects.get(id=user_id)
             
-            # Lấy trạng thái từ request body nếu có
             user_to_block.is_active = False
             user_to_block.save()
             
@@ -1068,7 +1069,6 @@ class Unblock(APIView):
             user_id = int(user_id)
             user_to_unblock = MyUser.objects.get(id=user_id)
             
-            # Lấy trạng thái từ request body nếu có
             user_to_unblock.is_active = True
             user_to_unblock.save()
             
@@ -1089,7 +1089,6 @@ class CreateUserView(APIView):
     
     def post(self, request):
         try:
-            # Lấy dữ liệu từ request
             username = request.data.get('username')
             email = request.data.get('email')
             password = request.data.get('password')
@@ -1101,13 +1100,11 @@ class CreateUserView(APIView):
             avatarImg = request.data.get('avatarImg', None)
             role = request.data.get('role', 'user')
             
-            # Kiểm tra dữ liệu
             if not username or not email or not password:
                 return Response({
                     "detail": "Username, email và mật khẩu là bắt buộc"
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Tạo người dùng mới
             user = MyUser.objects.create_user(
                 username=username,
                 email=email,
@@ -1120,31 +1117,23 @@ class CreateUserView(APIView):
                 role=role
             )
             
-            # Xử lý ảnh đại diện nếu có
             if avatarImg and avatarImg.startswith('data:image'):
                 # Tạo thư mục lưu hình nếu chưa tồn tại
-                import os
-                import base64
-                from django.conf import settings
-                from django.core.files.base import ContentFile
                 
                 UPLOAD_DIR = os.path.join(settings.MEDIA_ROOT, 'hinhanh')
                 if not os.path.exists(UPLOAD_DIR):
                     os.makedirs(UPLOAD_DIR)
                 
-                # Xử lý chuỗi Base64
                 format, imgstr = avatarImg.split(';base64,')
                 ext = format.split('/')[-1]
                 filename = f"{username}_{user.id}.{ext}"
                 
-                # Lưu file vào folder hinhanh
                 data = ContentFile(base64.b64decode(imgstr))
                 file_path = os.path.join(UPLOAD_DIR, filename)
                 
                 with open(file_path, 'wb') as f:
                     f.write(data.read())
                 
-                # Lưu đường dẫn trong database
                 user.avatarImg = f"hinhanh/{filename}"
                 user.save()
                 
@@ -1164,16 +1153,13 @@ class CreateUserView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UpdateUserView(APIView):
-    """API view để cập nhật thông tin người dùng"""
     permission_classes = [AllowAny]
     authentication_classes = []
     
     def put(self, request, user_id):
         try:
-            # Tìm người dùng cần cập nhật
             user = MyUser.objects.get(id=user_id)
             
-            # Lấy dữ liệu từ request
             username = request.data.get('username')
             email = request.data.get('email')
             password = request.data.get('password', None)
@@ -1184,26 +1170,21 @@ class UpdateUserView(APIView):
             is_active = request.data.get('is_active', user.is_active)
             avatarImg = request.data.get('avatarImg', user.avatarImg)
             role = request.data.get('role', user.role)
-            
-            # Kiểm tra dữ liệu
             if not username or not email:
                 return Response({
                     "detail": "Username và email là bắt buộc"
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Kiểm tra username đã tồn tại chưa (nếu thay đổi)
             if username != user.username and MyUser.objects.filter(username=username).exists():
                 return Response({
                     "detail": "Tên đăng nhập đã tồn tại"
                 }, status=status.HTTP_400_BAD_REQUEST)
                 
-            # Kiểm tra email đã tồn tại chưa (nếu thay đổi)
             if email != user.email and MyUser.objects.filter(email=email).exists():
                 return Response({
                     "detail": "Email đã tồn tại"
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Cập nhật thông tin người dùng
             user.username = username
             user.email = email
             user.first_name = first_name
@@ -1213,41 +1194,30 @@ class UpdateUserView(APIView):
             user.is_active = is_active
             user.role = role
             
-            # Cập nhật mật khẩu nếu được cung cấp
             if password:
                 user.set_password(password)
             
-            # Xử lý ảnh đại diện nếu có thay đổi và là chuỗi base64
             if avatarImg and avatarImg != user.avatarImg and avatarImg.startswith('data:image'):
-                # Tạo thư mục lưu hình nếu chưa tồn tại
-                import os
-                import base64
-                from django.conf import settings
-                from django.core.files.base import ContentFile
+            
                 
                 UPLOAD_DIR = os.path.join(settings.MEDIA_ROOT, 'hinhanh')
                 if not os.path.exists(UPLOAD_DIR):
                     os.makedirs(UPLOAD_DIR)
                 
-                # Xử lý chuỗi Base64
                 format, imgstr = avatarImg.split(';base64,')
                 ext = format.split('/')[-1]
                 filename = f"{username}_{user.id}.{ext}"
                 
-                # Lưu file vào folder hinhanh
                 data = ContentFile(base64.b64decode(imgstr))
                 file_path = os.path.join(UPLOAD_DIR, filename)
                 
                 with open(file_path, 'wb') as f:
                     f.write(data.read())
                 
-                # Lưu đường dẫn trong database
                 user.avatarImg = f"hinhanh/{filename}"
             
-            # Lưu thay đổi
             user.save()
                 
-            # Trả về thông tin người dùng đã cập nhật
             return Response({
                 "id": user.id,
                 "username": user.username,
@@ -1272,9 +1242,7 @@ class UpdateUserView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class TrackListView(APIView):
-    """
-    API view để lấy danh sách tất cả tracks cho trang quản lý
-    """
+   
     permission_classes = [AllowAny]
     
     def get(self, request):
@@ -1283,7 +1251,6 @@ class TrackListView(APIView):
             
             result = []
             for track in tracks:
-                # Lấy tên nghệ sĩ
                 artists = track.artists.all()
                 artist_names = [artist.name for artist in artists]
                 
@@ -1319,9 +1286,8 @@ class TrackListView(APIView):
         
 class AddTrackView(APIView):
     """
-    API view để thêm bài hát mới
     """
-    permission_classes = [AllowAny]  # Có thể thay đổi thành IsAuthenticated nếu cần xác thực
+    permission_classes = [AllowAny]  
     
     def post(self, request):
         try:
@@ -1334,13 +1300,11 @@ class AddTrackView(APIView):
             explicit = request.data.get('explicit', False)
             popularity = request.data.get('popularity', 50)
             
-            # Kiểm tra dữ liệu đầu vào
             if not title or not album_id or not audio_file:
                 return Response({
                     "detail": "Tên bài hát, album và file MP3 là bắt buộc"
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Tìm album
             try:
                 album = Album.objects.get(id=album_id)
             except Album.DoesNotExist:
@@ -1348,26 +1312,20 @@ class AddTrackView(APIView):
                     "detail": f"Không tìm thấy album với ID {album_id}"
                 }, status=status.HTTP_404_NOT_FOUND)
             
-            # Lưu file MP3
-            import os
-            from django.conf import settings
             
-            # Tạo thư mục lưu file nếu chưa tồn tại
+            
             UPLOAD_DIR = os.path.join(settings.MEDIA_ROOT, 'mp3')
             if not os.path.exists(UPLOAD_DIR):
                 os.makedirs(UPLOAD_DIR)
             
-            # Tạo tên file an toàn
             safe_title = "".join([c if c.isalnum() else "-" for c in title])
             filename = f"{safe_title}-{int(datetime.now().timestamp())}.mp3"
             file_path = os.path.join(UPLOAD_DIR, filename)
             
-            # Lưu file
             with open(file_path, 'wb+') as destination:
                 for chunk in audio_file.chunks():
                     destination.write(chunk)
             
-            # Tạo bài hát mới
             track = Track.objects.create(
                 title=title,
                 album=album,
