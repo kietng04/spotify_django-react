@@ -1,18 +1,10 @@
-FROM node:18-alpine
+FROM node:16-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache tini
-
-COPY package*.json ./
-RUN npm install
-
-ENV VITE_WATCH_POLLING=true
-ENV CHOKIDAR_USEPOLLING=true
-ENV NODE_ENV=development
-
+COPY package.json yarn.lock* ./
+RUN yarn install
+COPY . .
 EXPOSE 5173
 
-ENTRYPOINT ["/sbin/tini", "--"]
-
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+CMD ["yarn", "dev", "--host", "0.0.0.0"]

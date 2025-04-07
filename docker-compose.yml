@@ -51,7 +51,7 @@ services:
       - /app/node_modules
       
   admin:
-    build: ./frontend-admin    # Sửa thành đường dẫn chính xác
+    build: ./frontend-admin
     restart: always
     ports:
       - "5173:5173"
@@ -60,6 +60,7 @@ services:
     volumes:
       - ./frontend-admin:/app
       - /app/node_modules
+    command: yarn dev --host 0.0.0.0
 
 volumes:
   mysql_data:
