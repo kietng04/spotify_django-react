@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import SearchSection from "./SearchSection";
 import TracksSection from "./TracksSection";
 import EpisodesSection from "./EpisodesSection";
-import PlaylistSection from "./PlaylistSection";
+import PlaylistSection from "../components/PlaylistSection";
 import Hero from "./Hero";
 import SearchResult from "./SearchResult";
 
