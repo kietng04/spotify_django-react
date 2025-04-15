@@ -57,10 +57,33 @@ function PlaylistSection() {
   const [databaseTracks, setDatabaseTracks] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const { id: playlistId } = router.query;
-  const { setCurrentTrack, setTrackQueue, setIsPlaying, setCurrentIndex } =
-    useTrack();
+  const [currentPlayingId, setCurrentPlayingId] = useState(null);
+  const {
+    setCurrentTrack,
+    setTrackQueue,
+    setIsPlaying,
+    setCurrentIndex,
+    currentTrack,
+    isPlaying,
+    togglePlayPause,
+  } = useTrack();
 
   const isProduction = process.env.NODE_ENV !== "development";
+
+  useEffect(() => {
+    if (currentTrack?.id) {
+      setCurrentPlayingId(currentTrack.id);
+    }
+  }, [currentTrack]);
+
+  const playTrack = (track, index) => {
+    const tracks = playlistTracks.map((item) => item.track);
+    setTrackQueue(tracks);
+    setCurrentIndex(index);
+    setCurrentTrack(track);
+    setIsPlaying(true);
+    setCurrentPlayingId(track.id);
+  };
 
   useEffect(() => {
     if (playlist) {
@@ -259,13 +282,6 @@ function PlaylistSection() {
     setTrackQueue(tracks);
     setCurrentIndex(0);
     setCurrentTrack(tracks[0]);
-    setIsPlaying(true);
-  };
-  const playTrack = (track, index) => {
-    const tracks = playlistTracks.map((item) => item.track);
-    setTrackQueue(tracks);
-    setCurrentIndex(index);
-    setCurrentTrack(track);
     setIsPlaying(true);
   };
 
@@ -499,6 +515,7 @@ function PlaylistSection() {
 
           {playlistTracks.map((item, index) => {
             const track = item.track;
+            const isCurrentlyPlaying = currentPlayingId === track.id;
             return (
               <div
                 key={`track-${track.id}-${index}`}
@@ -531,21 +548,37 @@ function PlaylistSection() {
                     .getElementById(`playlist_delete_button_${index}`)
                     ?.classList.replace("visible", "invisible");
                 }}
-                className="w-full h-[70px] px-6 rounded-sm hover:bg-[#2C2B30]/70 relative flex items-center py-5"
+                className={`w-full h-[70px] px-6 rounded-sm hover:bg-[#2C2B30]/70 relative flex items-center py-5 ${
+                  isCurrentlyPlaying ? "bg-[#2C2B30]/70" : ""
+                }`}
               >
                 <div className="w-[45%] h-full flex items-center">
                   <span
                     id={`song_index_${index}`}
-                    className="mr-6 visible text-white text-lg font-book opacity-70"
+                    className={`mr-6 ${
+                      isCurrentlyPlaying ? "invisible" : "visible"
+                    } text-white text-lg font-book opacity-70`}
                   >
                     {index + 1}
                   </span>
 
                   <Image
-                    src={PlayIconWhite}
-                    className="absolute invisible"
+                    src={
+                      isCurrentlyPlaying && isPlaying
+                        ? PauseIconWhite
+                        : PlayIconWhite
+                    }
+                    className={`absolute ${
+                      isCurrentlyPlaying ? "visible" : "invisible"
+                    }`}
                     id={`song_playbutton_${index}`}
-                    onClick={() => playTrack(track, index)}
+                    onClick={() => {
+                      if (isCurrentlyPlaying) {
+                        togglePlayPause();
+                      } else {
+                        playTrack(track, index);
+                      }
+                    }}
                     alt="play icon"
                     priority={true}
                     height={15}
@@ -568,15 +601,27 @@ function PlaylistSection() {
                   <div className="w-full h-full flex flex-col justify-center ml-4">
                     <h1
                       id={`song_title_${index}`}
-                      className="font-book text-white cursor-default"
+                      className={`font-book ${
+                        isCurrentlyPlaying ? "text-[#1DB954]" : "text-white"
+                      } cursor-default`}
                     >
                       {track.title}
                     </h1>
-                    <h1 className="text-xs text-[#B2B3B2] mt-1">
+                    <h1
+                      className={`text-xs ${
+                        isCurrentlyPlaying ? "text-[#1DB954]" : "text-[#B2B3B2]"
+                      } mt-1`}
+                    >
                       {track.artists && track.artists.length > 0
                         ? track.artists.map((artist, i) => (
                             <React.Fragment key={i}>
-                              <span className="hover:text-white hover:underline cursor-pointer font-book">
+                              <span
+                                className={`${
+                                  isCurrentlyPlaying
+                                    ? "text-[#1DB954]"
+                                    : "hover:text-white"
+                                } hover:underline cursor-pointer font-book`}
+                              >
                                 {artist.name}
                               </span>
                               {i < track.artists.length - 1 && ", "}

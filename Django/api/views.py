@@ -1609,8 +1609,7 @@ class PlaylistDetailView(APIView):
             
         except Track.DoesNotExist:
             return Response({'error': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+       
 
     def delete(self, request, playlist_id):
         playlist = self.get_playlist(request, playlist_id, creator_only=True)
@@ -1635,5 +1634,4 @@ class PlaylistDetailView(APIView):
             
         except PlaylistTrack.DoesNotExist:
             return Response({'error': 'Track not found in this playlist'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
