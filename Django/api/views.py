@@ -46,6 +46,10 @@ import uuid
 import os
 import json
 import hmac
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny    
 
 GEMINI_API_KEY = "AIzaSyCDBht1ZEgJStn-ycfpFGdWr599E6XC5WA"
 client = genai.Client(api_key=GEMINI_API_KEY)
@@ -1087,10 +1091,7 @@ class Unblock(APIView):
             print(traceback.format_exc())
             return Response({"error": str(e)}, status=500)
         
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny      
+  
 class CreateUserView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -1376,6 +1377,28 @@ class AddTrackView(APIView):
 
 
 
+def format_playlist_data(playlist):
+    return {
+        'id': playlist.id,
+        'name': playlist.name,
+        'description': playlist.description,
+        'cover_image_url': playlist.cover_image_url,
+        'track_count': playlist.tracks.count(),
+        'creator': playlist.creator.id,
+        'creator_username': playlist.creator.username,
+        'is_public': playlist.is_public,
+        'followers_count': playlist.followers_count,
+        'created_at': playlist.created_at
+    }
+
+def handle_cover_image(request, playlist):
+    if 'cover_image' in request.FILES:
+        cover_image = request.FILES['cover_image']
+        file_name = f"playlist_covers/{str(uuid.uuid4())}{cover_image.name}"
+        file_path = default_storage.save(file_name, cover_image)
+        playlist.cover_image_url = default_storage.url(file_path)
+        playlist.save()
+
 class PlaylistView(APIView):
     authentication_classes = [CustomTokenAuthentication] 
     permission_classes = [IsAuthenticated]
@@ -1384,7 +1407,6 @@ class PlaylistView(APIView):
         name = request.data.get('name', 'New Playlist')
         description = request.data.get('description', '')
         track_ids = request.data.getlist('tracks', [])
-        
         playlist = Playlist.objects.create(
             name=name,
             description=description,
@@ -1392,12 +1414,7 @@ class PlaylistView(APIView):
             is_public=True
         )
         
-        if 'cover_image' in request.FILES:
-            cover_image = request.FILES['cover_image']
-            file_name = f"playlist_covers/{str(uuid.uuid4())}{cover_image.name}"
-            file_path = default_storage.save(file_name, cover_image)
-            playlist.cover_image_url = default_storage.url(file_path)
-            playlist.save()
+        handle_cover_image(request, playlist)
         
         for i, track_id in enumerate(track_ids):
             try:
@@ -1410,49 +1427,34 @@ class PlaylistView(APIView):
                 )
             except Track.DoesNotExist:
                 continue
+                
         UserFollowedPlaylist.objects.create(
             user=request.user,
             playlist=playlist
         )
-        
         playlist.followers_count = 1
         playlist.save()
-        return Response({
-            'id': playlist.id,
-            'name': playlist.name,
-            'description': playlist.description,
-            'cover_image_url': playlist.cover_image_url,
-            'track_count': playlist.tracks.count(),
-            'created_at': playlist.created_at
-        }, status=status.HTTP_201_CREATED)
+        
+        return Response(format_playlist_data(playlist), status=status.HTTP_201_CREATED)
     
     def get(self, request):
-        user = request.user
-        playlists = Playlist.objects.filter(creator=user)
-        
-        playlist_data = []
-        for playlist in playlists:
-            playlist_data.append({
-                'id': playlist.id,
-                'name': playlist.name,
-                'description': playlist.description,
-                'cover_image_url': playlist.cover_image_url,
-                'track_count': playlist.tracks.count(),
-                'created_at': playlist.created_at
-            })
-        
-        return Response(playlist_data)
+        playlists = Playlist.objects.filter(creator=request.user)
+        return Response([format_playlist_data(p) for p in playlists])
+
 
 class PlaylistFollowView(APIView):
     permission_classes = [IsAuthenticated]
+    
     def post(self, request):
         playlist_id = request.data.get('playlist_id')
         if not playlist_id:
             return Response({'error': 'Thiếu ID playlist'}, status=status.HTTP_400_BAD_REQUEST)
+            
         try:
             user = request.user
             playlist = Playlist.objects.get(id=playlist_id)
             follow_record = UserFollowedPlaylist.objects.filter(user=user, playlist=playlist)
+            
             if follow_record.exists():
                 follow_record.delete()
                 playlist.followers_count = max(0, playlist.followers_count - 1)
@@ -1461,7 +1463,7 @@ class PlaylistFollowView(APIView):
                     'status': 'success',
                     'action': 'unfollow',
                     'message': f"Đã bỏ theo dõi playlist '{playlist.name}'"
-                }, status=status.HTTP_200_OK)
+                })
             else:
                 UserFollowedPlaylist.objects.create(user=user, playlist=playlist)
                 playlist.followers_count += 1
@@ -1479,21 +1481,15 @@ class PlaylistFollowView(APIView):
             
     def get(self, request):
         playlist_id = request.query_params.get('playlist_id')
-        
         if not playlist_id:
             return Response({'error': 'Thiếu ID playlist'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            user = request.user
             is_following = UserFollowedPlaylist.objects.filter(
-                user=user, 
+                user=request.user, 
                 playlist_id=playlist_id
             ).exists()
-            
-            return Response({
-                'is_following': is_following
-            })
-            
+            return Response({'is_following': is_following})
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -1503,172 +1499,141 @@ class FollowedPlaylistsView(APIView):
     
     def get(self, request):
         try:
-            user = request.user
+            followed_playlist_ids = UserFollowedPlaylist.objects.filter(
+                user=request.user
+            ).values_list('playlist_id', flat=True)
             
-            followed_playlists = Playlist.objects.filter(
-                id__in=UserFollowedPlaylist.objects.filter(user=user).values_list('playlist_id', flat=True)
-            )
+            playlists = Playlist.objects.filter(id__in=followed_playlist_ids)
             
             result = []
-            for playlist in followed_playlists:
-                result.append({
-                    'id': playlist.id,
-                    'name': playlist.name,
-                    'description': playlist.description,
-                    'cover_image_url': playlist.cover_image_url,
-                    'track_count': playlist.tracks.count(),
-                    'creator': {
-                        'id': playlist.creator.id,
-                        'username': playlist.creator.username
-                    },
-                    'followers_count': playlist.followers_count,
-                    'created_at': playlist.created_at
-                })
+            for playlist in playlists:
+                data = format_playlist_data(playlist)
+                data['creator'] = {
+                    'id': playlist.creator.id,
+                    'username': playlist.creator.username
+                }
+                result.append(data)
                 
             return Response(result)
-            
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
+
 class PlaylistDetailView(APIView):
     permission_classes = [IsAuthenticated]
     
-    def get(self, request, playlist_id):
+    def get_playlist(self, request, playlist_id, creator_only=False):
         try:
+            if creator_only:
+                return Playlist.objects.get(id=playlist_id, creator=request.user)
+            
             user_playlists = Playlist.objects.filter(
                 Q(creator=request.user) | 
                 Q(id__in=UserFollowedPlaylist.objects.filter(user=request.user).values_list('playlist_id', flat=True))
             )
-            playlist = user_playlists.get(id=playlist_id)
-            playlist_tracks = PlaylistTrack.objects.filter(playlist=playlist).order_by('position')
-            result = {
-                'id': playlist.id,
-                'name': playlist.name,
-                'description': playlist.description,
-                'cover_image_url': playlist.cover_image_url,
-                'creator': playlist.creator.id,
-                'creator_username': playlist.creator.username,
-                'is_public': playlist.is_public,
-                'followers_count': playlist.followers_count,
-                'created_at': playlist.created_at,
-                'tracks': []
-            }
-            for pt in playlist_tracks:
-                artists = [{'id': a.id, 'name': a.name} for a in pt.track.artists.all()]
-                album = None
-                if pt.track.album:
-                    album = {
-                        'id': pt.track.album.id,
-                        'title': pt.track.album.title,
-                        'cover_image_url': pt.track.album.cover_image_url
-                    }
-                result['tracks'].append({
-                    'position': pt.position,
-                    'added_at': pt.added_at,
-                    'added_by': pt.added_by.username if pt.added_by else None,
-                    'track': {
-                        'id': pt.track.id,
-                        'title': pt.track.title,
-                        'duration_ms': pt.track.duration_ms,
-                        'artists': [{'id': artist.id, 'name': artist.name} for artist in pt.track.artists.all()],
-                        'album': {
-                            'id': pt.track.album.id if pt.track.album else None,
-                            'title': pt.track.album.title if pt.track.album else "Unknown Album",
-                            'cover_image_url': pt.track.album.cover_image_url if pt.track.album else None
-                        }
-                    }
-                })
-            return Response(result)
+            return user_playlists.get(id=playlist_id)
         except Playlist.DoesNotExist:
+            return None
+    
+    def get(self, request, playlist_id):
+        playlist = self.get_playlist(request, playlist_id)
+        if not playlist:
             return Response({'error': 'Playlist not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        result = format_playlist_data(playlist)
+        result['tracks'] = []
+        
+        playlist_tracks = PlaylistTrack.objects.filter(playlist=playlist).order_by('position')
+        for pt in playlist_tracks:
+            track = pt.track
+            result['tracks'].append({
+                'position': pt.position,
+                'added_at': pt.added_at,
+                'added_by': pt.added_by.username if pt.added_by else None,
+                'track': {
+                    'id': track.id,
+                    'title': track.title,
+                    'duration_ms': track.duration_ms,
+                    'artists': [{'id': artist.id, 'name': artist.name} for artist in track.artists.all()],
+                    'album': {
+                        'id': track.album.id if track.album else None,
+                        'title': track.album.title if track.album else "Unknown Album",
+                        'cover_image_url': track.album.cover_image_url if track.album else None
+                    }
+                }
+            })
+            
+        return Response(result)
 
     def put(self, request, playlist_id):
-        try:
-            playlist = Playlist.objects.get(id=playlist_id, creator=request.user)
-            if 'name' in request.data:
-                playlist.name = request.data['name']
-            if 'description' in request.data:
-                playlist.description = request.data['description']
-            
-            if 'cover_image' in request.FILES:
-                cover_image = request.FILES['cover_image']
-                file_name = f"playlist_covers/{str(uuid.uuid4())}{cover_image.name}"
-                file_path = default_storage.save(file_name, cover_image)
-                playlist.cover_image_url = default_storage.url(file_path)
-            # toi muon save lại j nah
-            playlist.save() 
-            
-            result = {
-                'id': playlist.id,
-                'name': playlist.name,
-                'description': playlist.description,
-                'cover_image_url': playlist.cover_image_url,
-                'creator': playlist.creator.id,
-                'creator_username': playlist.creator.username,
-                'is_public': playlist.is_public,
-                'followers_count': playlist.followers_count,
-                'created_at': playlist.created_at,
-            }
-            
-            return Response(result)
-        
-        except Playlist.DoesNotExist:
+        playlist = self.get_playlist(request, playlist_id, creator_only=True)
+        if not playlist:
             return Response({'error': 'Playlist not found or you don\'t have permission to edit it'}, 
-                            status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                           status=status.HTTP_404_NOT_FOUND)
+                           
+        if 'name' in request.data:
+            playlist.name = request.data['name']
+        if 'description' in request.data:
+            playlist.description = request.data['description']
+            
+        handle_cover_image(request, playlist)
+        playlist.save()
+        
+        return Response(format_playlist_data(playlist))
         
     def post(self, request, playlist_id):
+        playlist = self.get_playlist(request, playlist_id, creator_only=True)
+        if not playlist:
+            return Response({'error': 'Playlist not found or you don\'t have permission to edit it'}, 
+                           status=status.HTTP_404_NOT_FOUND)
+                           
+        track_id = request.data.get('track_id')
+        position = request.data.get('position', 0)
+        
+        if not track_id:
+            return Response({'error': 'Track ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
         try:
-            playlist = Playlist.objects.get(id=playlist_id, creator=request.user)
-            track_id = request.data.get('track_id')
-            position = request.data.get('position', 0)
-            if not track_id:
-                return Response({'error': 'Track ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-            try:
-                track = Track.objects.get(id=track_id)
-                if PlaylistTrack.objects.filter(playlist=playlist, track=track).exists():
-                    return Response({'error': 'Track already exists in this playlist'}, 
-                                    status=status.HTTP_400_BAD_REQUEST)
-                
-                # Add track to playlist
-                PlaylistTrack.objects.create(
-                    playlist=playlist,
-                    track=track,
-                    position=position,
-                    added_by=request.user
-                )
-                return Response({'success': True, 'message': 'track dã được thêm vào playlist thành công'},)
-            except Track.DoesNotExist:
-                return Response({'error': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
-                
-        except Playlist.DoesNotExist:
-            return Response({'error': 'ko tìm thấy playlist hoặc bạn không có quyền chỉnh sửa nó'}, 
-                            status=status.HTTP_404_NOT_FOUND)
+            track = Track.objects.get(id=track_id)
+            if PlaylistTrack.objects.filter(playlist=playlist, track=track).exists():
+                return Response({'error': 'Track already exists in this playlist'}, 
+                               status=status.HTTP_400_BAD_REQUEST)
+                               
+            PlaylistTrack.objects.create(
+                playlist=playlist,
+                track=track,
+                position=position,
+                added_by=request.user
+            )
+            return Response({'success': True, 'message': 'Track added to playlist successfully'})
+            
+        except Track.DoesNotExist:
+            return Response({'error': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, playlist_id):
+        playlist = self.get_playlist(request, playlist_id, creator_only=True)
+        if not playlist:
+            return Response({'error': 'Playlist not found or you don\'t have permission to edit it'}, 
+                           status=status.HTTP_404_NOT_FOUND)
+                           
+        track_id = request.data.get('track_id')
+        if not track_id:
+            return Response({'error': 'Track ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
         try:
-            playlist = Playlist.objects.get(id=playlist_id, creator=request.user)
-            track_id = request.data.get('track_id')
-            if not track_id:
-                return Response({'error': 'tarck id yêu cau'}, status=status.HTTP_400_BAD_REQUEST)
+            playlist_track = PlaylistTrack.objects.get(playlist=playlist, track_id=track_id)
+            playlist_track.delete()
+            
+            remaining_tracks = PlaylistTrack.objects.filter(playlist=playlist).order_by('position')
+            for i, pt in enumerate(remaining_tracks):
+                pt.position = i
+                pt.save()
                 
-            try:
-                playlist_track = PlaylistTrack.objects.get(playlist=playlist, track_id=track_id)
-                playlist_track.delete()
-                remaining_tracks = PlaylistTrack.objects.filter(playlist=playlist).order_by('position')
-                for i, pt in enumerate(remaining_tracks):
-                    pt.position = i
-                    pt.save()
-                return Response({'success': True, 'message': 'track đã dcc xoa'})
-            except PlaylistTrack.DoesNotExist:
-                return Response({'error': 'ko '}, status=status.HTTP_404_NOT_FOUND)
-        except Playlist.DoesNotExist:
-            return Response({'error': 'chua tìm thấy playlist hoặc bạn không có quyền chỉnh sửa nó'}, 
-                            status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': True, 'message': 'Track removed from playlist'})
+            
+        except PlaylistTrack.DoesNotExist:
+            return Response({'error': 'Track not found in this playlist'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
