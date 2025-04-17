@@ -27,11 +27,12 @@ function HomeSection() {
       ) : (
         <>
           <Hero />
-          <Section section_name="Episodes for you" />
+          <Section section_name="Episodes for you "  className="overflow-hidden"/>
           <Section
             section_name="Recommended"
             rounded
-            play_button={false}
+                    play_button={false}
+                    className="overflow-hidden"
           />
         </>
       )}

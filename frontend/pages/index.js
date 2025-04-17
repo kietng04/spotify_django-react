@@ -7,7 +7,7 @@ export default function Home() {
  
 
   return (
-    <div className="flex w-full h-screen overflow-scroll">
+    <div className="flex w-full h-screen overflow-hidden">
       <Head>
         <title>Spotify - Web Player</title>
         <link rel="icon" href={SpotifyGreenIcon.src} />

@@ -352,7 +352,7 @@ class ConversationListView(APIView):
                 continue
                 
             unread_count = conv.messages.filter(is_read=False).exclude(sender=user).count()
-            
+    
             result.append({
                 'id': conv.id,
                 'username': other_user.username,

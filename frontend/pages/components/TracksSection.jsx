@@ -21,7 +21,7 @@ function TracksSection() {
   const [isTokenValid, setIsTokenValid] = useState(false);
   const [currentPlayingId, setCurrentPlayingId] = useState(null);
 
-  const { 
+  const {
     setCurrentTrack,
     setTrackQueue,
     setIsPlaying,
@@ -44,46 +44,52 @@ function TracksSection() {
 
   const validateTokenAndFetchTracks = async () => {
     try {
-      const userDataString = localStorage.getItem('spotify_user');
+      const userDataString = localStorage.getItem("spotify_user");
       const token = userDataString ? JSON.parse(userDataString).token : null;
 
       if (!token || !userDataString) {
         setIsLoading(false);
         return;
       }
-      
+
       const userData = JSON.parse(userDataString);
       const userId = userData.user_id;
-      
-      const validateResponse = await fetch('http://localhost:8000/api/validate-token/', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Token ${token}`
+
+      const validateResponse = await fetch(
+        "http://localhost:8000/api/validate-token/",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Token ${token}`,
+          },
         }
-      });
-      
+      );
+
       if (!validateResponse.ok) {
         setIsLoading(false);
         return;
       }
-      
+
       setIsTokenValid(true);
       setUsername(userData.username);
 
-      const response = await fetch(`http://localhost:8000/api/liked-tracks/?user_id=${userId}`, {
-        headers: {
-          'Authorization': `Token ${token}`
+      const response = await fetch(
+        `http://localhost:8000/api/liked-tracks/?user_id=${userId}`,
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+          },
         }
-      });
-      
+      );
+
       if (response.ok) {
         const data = await response.json();
         setTracks(data);
       }
-      
+
       setIsLoading(false);
     } catch (error) {
-      console.error('Error validating token or fetching tracks:', error);
+      console.error("Error validating token or fetching tracks:", error);
       setIsLoading(false);
     }
   };
@@ -91,7 +97,7 @@ function TracksSection() {
   const formatDuration = (ms) => {
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
   const formatTotalDuration = (ms) => {
@@ -112,24 +118,26 @@ function TracksSection() {
 
   // Play track function
   const playTrack = (track, index) => {
-    const formattedTracks = tracks.map(track => ({
+    const formattedTracks = tracks.map((track) => ({
       id: track.id,
       name: track.title,
-      artistName: track.artists?.map(a => a.name).join(", ") || "Unknown Artist",
+      artistName:
+        track.artists?.map((a) => a.name).join(", ") || "Unknown Artist",
       thumbnail: track.album?.cover_image_url || null,
       duration_ms: track.duration_ms,
-      stream_url: `http://localhost:8000/api/stream/${track.id}`
+      stream_url: `http://localhost:8000/api/stream/${track.id}`,
     }));
-    
+
     const formattedTrack = {
       id: track.id,
       name: track.title,
-      artistName: track.artists?.map(a => a.name).join(", ") || "Unknown Artist",
+      artistName:
+        track.artists?.map((a) => a.name).join(", ") || "Unknown Artist",
       thumbnail: track.album?.cover_image_url || null,
       duration_ms: track.duration_ms,
-      stream_url: `http://localhost:8000/api/stream/${track.id}`
+      stream_url: `http://localhost:8000/api/stream/${track.id}`,
     };
-    
+
     setTrackQueue(formattedTracks);
     setCurrentIndex(index);
     setCurrentTrack(formattedTrack);
@@ -164,19 +172,22 @@ function TracksSection() {
         },
         body: JSON.stringify({
           user_id: userId,
-          track_id: trackId
+          track_id: trackId,
         }),
       });
 
       if (response.ok) {
-        setTracks(tracks.filter(track => track.id !== trackId));
+        setTracks(tracks.filter((track) => track.id !== trackId));
       }
     } catch (error) {
       console.error("Error unliking track:", error);
     }
   };
 
-  const totalDuration = tracks.reduce((total, track) => total + track.duration_ms, 0);
+  const totalDuration = tracks.reduce(
+    (total, track) => total + track.duration_ms,
+    0
+  );
 
   return (
     <div className="w-full relative">
@@ -254,7 +265,7 @@ function TracksSection() {
             </div>
             <div className="w-[22%] h-full flex">
               <h1 className="text-white text-sm font-book mb-4 opacity-70">
-                Date added
+                Release date
               </h1>
             </div>
             <div className="w-[10%] h-full flex justify-end">
@@ -265,192 +276,204 @@ function TracksSection() {
           </div>
 
           {/* Track List */}
-          {isLoading ? (
-            // Loading state
-            Array(6).fill(0).map((_, index) => (
-              <div 
-                key={index}
-                className="w-full h-[70px] px-6 rounded-sm bg-[#2C2B30]/20 relative flex items-center py-5 animate-pulse"
-              >
-                <div className="w-[45%] h-full flex items-center">
-                  <span className="mr-6 text-transparent bg-gray-700 rounded">00</span>
-                  <div className="h-12 w-12 bg-gray-700 rounded"></div>
-                  <div className="ml-4 h-8 w-32 bg-gray-700 rounded"></div>
-                </div>
-                <div className="w-[28%] h-8 bg-gray-700 rounded"></div>
-                <div className="w-[22%] h-8 bg-gray-700 rounded"></div>
-                <div className="w-[10%] h-8 bg-gray-700 rounded"></div>
-              </div>
-            ))
-          ) : (
-            // Display fetched tracks
-            tracks.map((track, index) => {
-              const isCurrentlyPlaying = currentPlayingId === track.id;
-              const dateAdded = track.liked_at ? new Date(track.liked_at).toLocaleDateString() : "Unknown";
-              
-              return (
-                <div
-                  key={`track-${track.id}-${index}`}
-                  id={`songs_wrapper_${index}`}
-                  onMouseEnter={() => {
-                    document
-                      .getElementById(`song_playbutton_${index}`)
-                      ?.classList.replace("invisible", "visible");
-                    document
-                      .getElementById(`playlist_heart_button_${index}`)
-                      ?.classList.replace("invisible", "visible");
-                    document
-                      .getElementById(`song_index_${index}`)
-                      ?.classList.replace("visible", "invisible");
-                    document
-                      .getElementById(`playlist_delete_button_${index}`)
-                      ?.classList.replace("invisible", "visible");
-                  }}
-                  onMouseLeave={() => {
-                    document
-                      .getElementById(`song_playbutton_${index}`)
-                      ?.classList.replace("visible", "invisible");
-                    document
-                      .getElementById(`playlist_heart_button_${index}`)
-                      ?.classList.replace("visible", "invisible");
-                    document
-                      .getElementById(`song_index_${index}`)
-                      ?.classList.replace("invisible", "visible");
-                    document
-                      .getElementById(`playlist_delete_button_${index}`)
-                      ?.classList.replace("visible", "invisible");
-                  }}
-                  className={`w-full h-[70px] px-6 rounded-sm hover:bg-[#2C2B30]/70 relative flex items-center py-5 ${
-                    isCurrentlyPlaying ? "bg-[#2C2B30]/70" : ""
-                  }`}
-                >
-                  <div className="w-[45%] h-full flex items-center">
-                    <span
-                      id={`song_index_${index}`}
-                      className={`mr-6 ${
-                        isCurrentlyPlaying ? "invisible" : "visible"
-                      } text-white text-lg font-book opacity-70`}
-                    >
-                      {index + 1}
-                    </span>
-
-                    <Image
-                      src={
-                        isCurrentlyPlaying && isPlaying
-                          ? PauseIconWhite
-                          : PlayIconWhite
-                      }
-                      className={`absolute ${
-                        isCurrentlyPlaying ? "visible" : "invisible"
-                      }`}
-                      id={`song_playbutton_${index}`}
-                      onClick={() => {
-                        if (isCurrentlyPlaying) {
-                          togglePlayPause();
-                        } else {
-                          playTrack(track, index);
-                        }
-                      }}
-                      alt="play icon"
-                      priority={true}
-                      height={15}
-                    />
-
-                    <Image
-                      src={getImageSrc(track.album?.cover_image_url)}
-                      alt={track.title}
-                      width={40}
-                      height={40}
-                      priority={true}
-                      className="h-full w-fit object-cover"
-                      unoptimized={true}
-                    />
-
-                    <div className="w-full h-full flex flex-col justify-center ml-4">
-                      <h1
-                        id={`song_title_${index}`}
-                        className={`font-book ${
-                          isCurrentlyPlaying ? "text-[#1DB954]" : "text-white"
-                        } cursor-default`}
-                      >
-                        {track.title}
-                      </h1>
-                      <h1
-                        className={`text-xs ${
-                          isCurrentlyPlaying ? "text-[#1DB954]" : "text-[#B2B3B2]"
-                        } mt-1`}
-                      >
-                        {track.artists && track.artists.length > 0
-                          ? track.artists.map((artist, i) => (
-                              <React.Fragment key={i}>
-                                <span
-                                  className={`${
-                                    isCurrentlyPlaying
-                                      ? "text-[#1DB954]"
-                                      : "hover:text-white"
-                                  } hover:underline cursor-pointer font-book`}
-                                >
-                                  {artist.name}
-                                </span>
-                                {i < track.artists.length - 1 && ", "}
-                              </React.Fragment>
-                            ))
-                          : "Unknown Artist"}
-                      </h1>
+          {isLoading
+            ? // Loading state
+              Array(6)
+                .fill(0)
+                .map((_, index) => (
+                  <div
+                    key={index}
+                    className="w-full h-[70px] px-6 rounded-sm bg-[#2C2B30]/20 relative flex items-center py-5 animate-pulse"
+                  >
+                    <div className="w-[45%] h-full flex items-center">
+                      <span className="mr-6 text-transparent bg-gray-700 rounded">
+                        00
+                      </span>
+                      <div className="h-12 w-12 bg-gray-700 rounded"></div>
+                      <div className="ml-4 h-8 w-32 bg-gray-700 rounded"></div>
                     </div>
+                    <div className="w-[28%] h-8 bg-gray-700 rounded"></div>
+                    <div className="w-[22%] h-8 bg-gray-700 rounded"></div>
+                    <div className="w-[10%] h-8 bg-gray-700 rounded"></div>
                   </div>
+                ))
+            : // Display fetched tracks
+              tracks.map((track, index) => {
+                const isCurrentlyPlaying = currentPlayingId === track.id;
+                const dateAdded = track.liked_at
+                  ? new Date(track.liked_at).toLocaleDateString()
+                  : "Unknown";
 
-                  <div className="w-[28%] h-full flex items-center">
-                    <h1 className="text-white text-sm font-book opacity-70">
-                      {track.album?.title || "Unknown Album"}
-                    </h1>
-                  </div>
+                return (
+                  <div
+                    key={`track-${track.id}-${index}`}
+                    id={`songs_wrapper_${index}`}
+                    onMouseEnter={() => {
+                      document
+                        .getElementById(`song_playbutton_${index}`)
+                        ?.classList.replace("invisible", "visible");
+                      document
+                        .getElementById(`playlist_heart_button_${index}`)
+                        ?.classList.replace("invisible", "visible");
+                      document
+                        .getElementById(`song_index_${index}`)
+                        ?.classList.replace("visible", "invisible");
+                      document
+                        .getElementById(`playlist_delete_button_${index}`)
+                        ?.classList.replace("invisible", "visible");
+                    }}
+                    onMouseLeave={() => {
+                      document
+                        .getElementById(`song_playbutton_${index}`)
+                        ?.classList.replace("visible", "invisible");
+                      document
+                        .getElementById(`playlist_heart_button_${index}`)
+                        ?.classList.replace("visible", "invisible");
+                      document
+                        .getElementById(`song_index_${index}`)
+                        ?.classList.replace("invisible", "visible");
+                      document
+                        .getElementById(`playlist_delete_button_${index}`)
+                        ?.classList.replace("visible", "invisible");
+                    }}
+                    className={`w-full h-[70px] px-6 rounded-sm hover:bg-[#2C2B30]/70 relative flex items-center py-5 ${
+                      isCurrentlyPlaying ? "bg-[#2C2B30]/70" : ""
+                    }`}
+                  >
+                    <div className="w-[45%] h-full flex items-center">
+                      <span
+                        id={`song_index_${index}`}
+                        className={`mr-6 ${
+                          isCurrentlyPlaying ? "invisible" : "visible"
+                        } text-white text-lg font-book opacity-70`}
+                      >
+                        {index + 1}
+                      </span>
 
-                  <div className="w-[22%] h-full flex items-center">
-                    <h1 className="text-white text-sm font-book opacity-70">
-                      {dateAdded}
-                    </h1>
-                  </div>
-
-                  <div className="w-[10%] h-full flex items-center justify-end">
-                    <div
-                      id={`playlist_heart_button_${index}`}
-                      className="cursor-pointer invisible mr-3"
-                      onClick={(e) => unlikeTrack(e, track.id)}
-                    >
                       <Image
-                        src={HeartIconGreen}
-                        alt="Heart Icon Green"
-                        width={16}
-                        height={16}
-                        className="cursor-pointer"
+                        src={
+                          isCurrentlyPlaying && isPlaying
+                            ? PauseIconWhite
+                            : PlayIconWhite
+                        }
+                        className={`absolute ${
+                          isCurrentlyPlaying ? "visible" : "invisible"
+                        }`}
+                        id={`song_playbutton_${index}`}
+                        onClick={() => {
+                          if (isCurrentlyPlaying) {
+                            togglePlayPause();
+                          } else {
+                            playTrack(track, index);
+                          }
+                        }}
+                        alt="play icon"
+                        priority={true}
+                        height={15}
                       />
+
+                      <Image
+                        src={getImageSrc(track.album?.cover_image_url)}
+                        alt={track.title}
+                        width={40}
+                        height={40}
+                        priority={true}
+                        className="h-full w-fit object-cover"
+                        unoptimized={true}
+                      />
+
+                      <div className="w-full h-full flex flex-col justify-center ml-4">
+                        <h1
+                          id={`song_title_${index}`}
+                          className={`font-book ${
+                            isCurrentlyPlaying ? "text-[#1DB954]" : "text-white"
+                          } cursor-default`}
+                        >
+                          {track.title}
+                        </h1>
+                        <h1
+                          className={`text-xs ${
+                            isCurrentlyPlaying
+                              ? "text-[#1DB954]"
+                              : "text-[#B2B3B2]"
+                          } mt-1`}
+                        >
+                          {track.artists && track.artists.length > 0
+                            ? track.artists.map((artist, i) => (
+                                <React.Fragment key={i}>
+                                  <span
+                                    className={`${
+                                      isCurrentlyPlaying
+                                        ? "text-[#1DB954]"
+                                        : "hover:text-white"
+                                    } hover:underline cursor-pointer font-book`}
+                                  >
+                                    {artist.name}
+                                  </span>
+                                  {i < track.artists.length - 1 && ", "}
+                                </React.Fragment>
+                              ))
+                            : "Unknown Artist"}
+                        </h1>
+                      </div>
                     </div>
 
-                    <div
-                      id={`playlist_delete_button_${index}`}
-                      className="cursor-pointer invisible mr-3"
-                      onClick={(e) => unlikeTrack(e, track.id)}
-                    >
-                      <RiDeleteBin6Line
-                        className="text-[#B3B3B3] hover:text-white"
-                        size={16}
-                      />
+                    <div className="w-[28%] h-full flex items-center">
+                      <h1 className="text-white text-sm font-book opacity-70">
+                        {track.album?.title || "Unknown Album"}
+                      </h1>
                     </div>
 
-                    <h1 className="text-white text-sm font-book opacity-70">
-                      {formatDuration(track.duration_ms)}
-                    </h1>
+                    <div className="w-[22%] h-full flex items-center">
+                      <h1 className="text-white text-sm font-book opacity-70">
+                        {track.release_date ||
+                          track.album?.release_date ||
+                          "Unknown"}
+                      </h1>
+                    </div>
+
+                    <div className="w-[10%] h-full flex items-center justify-end">
+                      <div
+                        id={`playlist_heart_button_${index}`}
+                        className="cursor-pointer invisible mr-3"
+                        onClick={(e) => unlikeTrack(e, track.id)}
+                      >
+                        <Image
+                          src={HeartIconGreen}
+                          alt="Heart Icon Green"
+                          width={16}
+                          height={16}
+                          className="cursor-pointer"
+                        />
+                      </div>
+
+                      <div
+                        id={`playlist_delete_button_${index}`}
+                        className="cursor-pointer invisible mr-3"
+                        onClick={(e) => unlikeTrack(e, track.id)}
+                      >
+                        <RiDeleteBin6Line
+                          className="text-[#B3B3B3] hover:text-white"
+                          size={16}
+                        />
+                      </div>
+
+                      <h1 className="text-white text-sm font-book opacity-70">
+                        {formatDuration(track.duration_ms)}
+                      </h1>
+                    </div>
                   </div>
-                </div>
-              );
-            })
-          )}
-          
+                );
+              })}
+
           {!isLoading && tracks.length === 0 && (
             <div className="w-full flex flex-col items-center justify-center py-10">
-              <h1 className="text-white text-xl font-bold mb-2">No liked songs yet</h1>
-              <p className="text-gray-400">Save songs you like by clicking the heart icon</p>
+              <h1 className="text-white text-xl font-bold mb-2">
+                No liked songs yet
+              </h1>
+              <p className="text-gray-400">
+                Save songs you like by clicking the heart icon
+              </p>
             </div>
           )}
         </div>

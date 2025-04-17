@@ -240,7 +240,7 @@ export default function CreatePlaylist() {
   };
 
   return (
-    <div className="flex w-full h-screen overflow-scroll overflow-hidden">
+    <div className="flex w-full h-screen overflow-hidden">
       <Head>
         <title>Spotify - Create Playlist</title>
         <link rel="icon" href={SpotifyGreenIcon.src} />
