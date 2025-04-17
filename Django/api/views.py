@@ -50,7 +50,6 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny    
-
 GEMINI_API_KEY = "AIzaSyCDBht1ZEgJStn-ycfpFGdWr599E6XC5WA"
 client = genai.Client(api_key=GEMINI_API_KEY)
 
@@ -278,9 +277,11 @@ class LikeTrackView(APIView):
                 }, status=status.HTTP_201_CREATED)
             
         except MyUser.DoesNotExist:
-            return Response({'error': 'Ko tim thay user'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Không tìm thấy người dùng'}, status=status.HTTP_404_NOT_FOUND)
         except Track.DoesNotExist:
-            return Response({'error': 'Ko tim thay nhac'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Không tìm thấy bài hát'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class CheckLikeStatusView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1376,7 +1377,6 @@ class AddTrackView(APIView):
 
 
 
-
 def format_playlist_data(playlist):
     return {
         'id': playlist.id,
@@ -1407,6 +1407,7 @@ class PlaylistView(APIView):
         name = request.data.get('name', 'New Playlist')
         description = request.data.get('description', '')
         track_ids = request.data.getlist('tracks', [])
+        
         playlist = Playlist.objects.create(
             name=name,
             description=description,
@@ -1425,8 +1426,8 @@ class PlaylistView(APIView):
                     position=i,
                     added_by=request.user
                 )
-            except Track.DoesNotExist:
-                continue
+            except:
+                pass
                 
         UserFollowedPlaylist.objects.create(
             user=request.user,
@@ -1448,75 +1449,58 @@ class PlaylistFollowView(APIView):
     def post(self, request):
         playlist_id = request.data.get('playlist_id')
         if not playlist_id:
-            return Response({'error': 'Thiếu ID playlist'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Missing playlist ID'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
-            user = request.user
             playlist = Playlist.objects.get(id=playlist_id)
-            follow_record = UserFollowedPlaylist.objects.filter(user=user, playlist=playlist)
+            follow_record = UserFollowedPlaylist.objects.filter(user=request.user, playlist=playlist)
             
             if follow_record.exists():
                 follow_record.delete()
                 playlist.followers_count = max(0, playlist.followers_count - 1)
                 playlist.save()
-                return Response({
-                    'status': 'success',
-                    'action': 'unfollow',
-                    'message': f"Đã bỏ theo dõi playlist '{playlist.name}'"
-                })
+                return Response({'action': 'unfollow'})
             else:
-                UserFollowedPlaylist.objects.create(user=user, playlist=playlist)
+                UserFollowedPlaylist.objects.create(user=request.user, playlist=playlist)
                 playlist.followers_count += 1
                 playlist.save()
-                return Response({
-                    'status': 'success',
-                    'action': 'follow',
-                    'message': f"Đã theo dõi playlist '{playlist.name}'"
-                }, status=status.HTTP_201_CREATED)
+                return Response({'action': 'follow'})
                 
-        except Playlist.DoesNotExist:
-            return Response({'error': 'Không tìm thấy playlist'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except:
+            return Response({'error': 'Error processing request'}, status=status.HTTP_400_BAD_REQUEST)
             
     def get(self, request):
         playlist_id = request.query_params.get('playlist_id')
         if not playlist_id:
-            return Response({'error': 'Thiếu ID playlist'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Missing playlist ID'}, status=status.HTTP_400_BAD_REQUEST)
             
-        try:
-            is_following = UserFollowedPlaylist.objects.filter(
-                user=request.user, 
-                playlist_id=playlist_id
-            ).exists()
-            return Response({'is_following': is_following})
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        is_following = UserFollowedPlaylist.objects.filter(
+            user=request.user, 
+            playlist_id=playlist_id
+        ).exists()
+        return Response({'is_following': is_following})
 
 
 class FollowedPlaylistsView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        try:
-            followed_playlist_ids = UserFollowedPlaylist.objects.filter(
-                user=request.user
-            ).values_list('playlist_id', flat=True)
+        followed_playlist_ids = UserFollowedPlaylist.objects.filter(
+            user=request.user
+        ).values_list('playlist_id', flat=True)
+        
+        playlists = Playlist.objects.filter(id__in=followed_playlist_ids)
+        
+        result = []
+        for playlist in playlists:
+            data = format_playlist_data(playlist)
+            data['creator'] = {
+                'id': playlist.creator.id,
+                'username': playlist.creator.username
+            }
+            result.append(data)
             
-            playlists = Playlist.objects.filter(id__in=followed_playlist_ids)
-            
-            result = []
-            for playlist in playlists:
-                data = format_playlist_data(playlist)
-                data['creator'] = {
-                    'id': playlist.creator.id,
-                    'username': playlist.creator.username
-                }
-                result.append(data)
-                
-            return Response(result)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(result)
 
 
 class PlaylistDetailView(APIView):
@@ -1532,13 +1516,13 @@ class PlaylistDetailView(APIView):
                 Q(id__in=UserFollowedPlaylist.objects.filter(user=request.user).values_list('playlist_id', flat=True))
             )
             return user_playlists.get(id=playlist_id)
-        except Playlist.DoesNotExist:
+        except:
             return None
     
     def get(self, request, playlist_id):
         playlist = self.get_playlist(request, playlist_id)
         if not playlist:
-            return Response({'error': 'Playlist not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
             
         result = format_playlist_data(playlist)
         result['tracks'] = []
@@ -1568,8 +1552,7 @@ class PlaylistDetailView(APIView):
     def put(self, request, playlist_id):
         playlist = self.get_playlist(request, playlist_id, creator_only=True)
         if not playlist:
-            return Response({'error': 'Playlist not found or you don\'t have permission to edit it'}, 
-                           status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
                            
         if 'name' in request.data:
             playlist.name = request.data['name']
@@ -1584,20 +1567,18 @@ class PlaylistDetailView(APIView):
     def post(self, request, playlist_id):
         playlist = self.get_playlist(request, playlist_id, creator_only=True)
         if not playlist:
-            return Response({'error': 'Playlist not found or you don\'t have permission to edit it'}, 
-                           status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
                            
         track_id = request.data.get('track_id')
         position = request.data.get('position', 0)
         
         if not track_id:
-            return Response({'error': 'Track ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Track ID required'}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
             track = Track.objects.get(id=track_id)
             if PlaylistTrack.objects.filter(playlist=playlist, track=track).exists():
-                return Response({'error': 'Track already exists in this playlist'}, 
-                               status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Track already in playlist'}, status=status.HTTP_400_BAD_REQUEST)
                                
             PlaylistTrack.objects.create(
                 playlist=playlist,
@@ -1605,22 +1586,29 @@ class PlaylistDetailView(APIView):
                 position=position,
                 added_by=request.user
             )
-            return Response({'success': True, 'message': 'Track added to playlist successfully'})
+            return Response({'success': True})
             
-        except Track.DoesNotExist:
+        except:
             return Response({'error': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
        
-
     def delete(self, request, playlist_id):
         playlist = self.get_playlist(request, playlist_id, creator_only=True)
         if not playlist:
-            return Response({'error': 'Playlist not found or you don\'t have permission to edit it'}, 
-                           status=status.HTTP_404_NOT_FOUND)
-                           
-        track_id = request.data.get('track_id')
-        if not track_id:
-            return Response({'error': 'Track ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
             
+        playlist.delete()
+        return Response({'success': True})
+            
+    def remove_track(self, request, playlist_id):
+        playlist = self.get_playlist(request, playlist_id, creator_only=True)
+        if not playlist:
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        data = json.loads(request.body)
+        track_id = data.get('track_id')
+        if not track_id:
+            return Response({'error': 'Track ID required'}, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
             playlist_track = PlaylistTrack.objects.get(playlist=playlist, track_id=track_id)
             playlist_track.delete()
@@ -1629,9 +1617,82 @@ class PlaylistDetailView(APIView):
             for i, pt in enumerate(remaining_tracks):
                 pt.position = i
                 pt.save()
-                
-            return Response({'success': True, 'message': 'Track removed from playlist'})
             
-        except PlaylistTrack.DoesNotExist:
-            return Response({'error': 'Track not found in this playlist'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': True})
+            
+        except:
+            return Response({'error': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
+                
         
+class CheckLikeStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
+        track_id = request.query_params.get('track_id')
+        
+        if not user_id or not track_id:
+            return Response({'error': 'Missing user_id or track_id'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = MyUser.objects.get(id=user_id)
+            is_liked = UserLikedTrack.objects.filter(user=user, track_id=track_id).exists()
+            return Response({'is_liked': is_liked})
+        except:
+            return Response({'error': 'Error checking like status'}, status=status.HTTP_400_BAD_REQUEST)
+        
+# Add this new view class:
+
+class PlaylistRemoveTrackView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def delete(self, request, playlist_id):
+        try:
+            try:
+                playlist = Playlist.objects.get(id=playlist_id)
+                
+                if playlist.creator != request.user:
+                    return Response(
+                        {'error': 'You do not have permission to modify this playlist'}, 
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            except Playlist.DoesNotExist:
+                return Response(
+                    {'error': 'Playlist not found'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            data = json.loads(request.body)
+            track_id = data.get('track_id')
+            
+            if not track_id:
+                return Response(
+                    {'error': 'Track ID is required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                playlist_track = PlaylistTrack.objects.get(playlist=playlist, track_id=track_id)
+                playlist_track.delete()
+                
+                remaining_tracks = PlaylistTrack.objects.filter(playlist=playlist).order_by('position')
+                for i, pt in enumerate(remaining_tracks):
+                    pt.position = i
+                    pt.save()
+                
+                return Response({
+                    'success': True, 
+                    'message': 'Track removed from playlist'
+                })
+                
+            except PlaylistTrack.DoesNotExist:
+                return Response(
+                    {'error': 'Track not found in this playlist'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+                
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
