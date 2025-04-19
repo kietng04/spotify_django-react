@@ -30,7 +30,12 @@ from .views import (
     UpdateUserView,
     UserSearchView,
     UserViewSet,
-    ZaloPayView
+    ZaloPayView,
+    PlaylistView,
+    PlaylistFollowView,
+    FollowedPlaylistsView,
+    PlaylistDetailView,
+    PlaylistRemoveTrackView
 )
 router = DefaultRouter()
 router.register('users', UserViewSet)
@@ -63,5 +68,13 @@ urlpatterns = [
     path('verify-payment/', views.VerifyPaymentView.as_view(), name='verify-payment'),
     path('user-profile/', views.UserProfileView.as_view(), name='user-profile'),
     path('gemini/chat/', GeminiAIView.as_view(), name='gemini-chat'),
+    path('playlist/', PlaylistView.as_view(), name='playlist-crud'),
+    path('playlist/follow/', PlaylistFollowView.as_view(), name='playlist-follow'),
+    path('playlist/followed/', FollowedPlaylistsView.as_view(), name='followed-playlists'),
+    path('playlist/<int:playlist_id>/', PlaylistDetailView.as_view(), name='playlist-detail'),
+    path('playlist/<int:playlist_id>/add-track/', PlaylistDetailView.as_view(), name='playlist-add-track'),
+    # path('playlist/<int:playlist_id>/remove-track/', PlaylistDetailView.as_view(), name='playlist-remove-track'),
+    path('playlist/<int:playlist_id>/remove/', PlaylistDetailView.as_view(), name='playlist-remove'),
+   path('playlist/<int:playlist_id>/remove-track/', views.PlaylistRemoveTrackView.as_view(), name='playlist-remove-track'),
 ]
 

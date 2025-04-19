@@ -6,7 +6,7 @@ import SpotifyGreenIcon from "../images/icons/Spotify_Icon_RGB_Green.png";
 
 function Search() {
   return (
-    <div className="flex w-full h-screen overflow-scroll" >
+    <div className="flex w-full h-screen overflow-hidden" >
       <Head>
         <title>Spotify - Search</title>
         <link rel="icon" href={SpotifyGreenIcon.src} />

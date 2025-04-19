@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import SearchSection from "./SearchSection";
 import TracksSection from "./TracksSection";
 import EpisodesSection from "./EpisodesSection";
-import PlaylistSection from "./PlaylistSection";
+import PlaylistSection from "../components/PlaylistSection";
 import Hero from "./Hero";
 import SearchResult from "./SearchResult";
 
@@ -27,11 +27,12 @@ function HomeSection() {
       ) : (
         <>
           <Hero />
-          <Section section_name="Episodes for you" />
+          <Section section_name="Episodes for you "  className="overflow-hidden"/>
           <Section
             section_name="Recommended"
             rounded
-            play_button={false}
+                    play_button={false}
+                    className="overflow-hidden"
           />
         </>
       )}

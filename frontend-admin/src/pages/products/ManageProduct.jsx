@@ -41,7 +41,6 @@ const ManageTrack = () => {
       try {
         setLoading(true);
         const response = await fetch("http://localhost:8000/api/tracks/list/");
-        
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
@@ -51,7 +50,6 @@ const ManageTrack = () => {
       } catch (error) {
         console.error("Lỗi khi lấy danh sách bài hát:", error);
         setError(error.message);
-        // Fallback sample data if API fails
         setTracks([
           {
             id: 1,
@@ -63,7 +61,6 @@ const ManageTrack = () => {
             created_at: "2025-03-14 15:54:15",
             updated_at: "2025-03-14 15:54:15"
           },
-          // More sample data...
         ]);
       } finally {
         setLoading(false);

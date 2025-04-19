@@ -11,7 +11,7 @@ function Playlist() {
     let { id } = router.query
 
   return (
-    <div className="flex w-full h-screen overflow-scroll" >
+    <div className="flex w-full h-screen overflow-hidden" >
     <Head>
       <title>Spotify - Playlist</title>
       <link rel="icon" href={SpotifyGreenIcon.src} />

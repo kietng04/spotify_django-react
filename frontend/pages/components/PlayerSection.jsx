@@ -143,9 +143,9 @@ function PlayerSection() {
 
   return (
     <div
-      id="player_section"
-      className="h-24 z-[100] bg-[#181919] border-t border-t-[#292928] overflow-scroll flex lg:w-full w-[850px] fixed bottom-0 left-0"
-    >
+  id="player_section"
+  className="h-24 z-[100] bg-[#181919] border-t border-t-[#292928] overflow-hidden flex lg:w-full w-[850px] fixed bottom-0 left-0"
+>
       {/* Hidden audio element - managed by TrackContext */}
       <div className="hidden">
         <audio id="player_audio"></audio>
@@ -279,7 +279,7 @@ function PlayerSection() {
         
         {/* Progress bar section */}
         <div className="h-[35%] w-full flex justify-center items-center">
-          <div className="w-[5%] h-full flex items-center justify-center px-2">
+          <div className="w-[10%] h-full flex items-center justify-center px-2">
             <p
               id="current-time"
               className="font-light text-xs opacity-50 text-white"
@@ -303,7 +303,7 @@ function PlayerSection() {
               </div>
             </div>
           </div>
-          <div className="w-[5%] h-full flex items-center justify-center px-2">
+          <div className="w-[10%] h-full flex items-center justify-center px-2">
             <p
               id="duration"
               className="font-light text-xs opacity-50 text-white"
