@@ -9,12 +9,11 @@ import Variations from "../../api/Variations.json";
 import Colloctions from "../../api/Colloctions.json";
 import Modal from "../../components/common/Modal.jsx";
 import Input from "../../components/common/Input.jsx";
-import NotFound from '../../pages/error/NotFound.jsx';
 import Tagify from "../../components/common/Tagify.jsx";
 import Button from "../../components/common/Button.jsx";
 import Attributes from "../../api/ProductAttributes.json";
 import Divider from "../../components/common/Divider.jsx";
-import { useParams, Routes, Route} from "react-router-dom";
+import { useParams, Routes, Route } from "react-router-dom";
 import CheckBox from "../../components/common/CheckBox.jsx";
 import Dropdown from "../../components/common/Dropdown.jsx";
 import Textarea from "../../components/common/Textarea.jsx";
@@ -28,10 +27,12 @@ import ManageProduct from "../../pages/products/ManageProduct.jsx";
 const EditProduct = ({ productData }) => {
   const {productId} = useParams();
   const getProduct = Products.find(product=> product.id.toString() === productId.toString());
+
   if (!getProduct) {
-    return <Routes>
-      <Route path="*" element={<NotFound title="product not found" message="Sorry, the product details you are looking for could not be found."/>}/>
-    </Routes>
+    return <div style={{ padding: '20px', textAlign: 'center' }}>
+      <h2>Product Not Found</h2>
+      <p>Sorry, the product details you are looking for could not be found.</p>
+    </div>;
   }
 
   const [product, setProduct] = useState({

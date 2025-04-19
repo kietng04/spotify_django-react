@@ -35,7 +35,9 @@ from .views import (
     PlaylistFollowView,
     FollowedPlaylistsView,
     PlaylistDetailView,
-    PlaylistRemoveTrackView
+    PlaylistRemoveTrackView,
+    RecommendedTracksView,
+    PublicPlaylistsView
 )
 router = DefaultRouter()
 router.register('users', UserViewSet)
@@ -73,8 +75,9 @@ urlpatterns = [
     path('playlist/followed/', FollowedPlaylistsView.as_view(), name='followed-playlists'),
     path('playlist/<int:playlist_id>/', PlaylistDetailView.as_view(), name='playlist-detail'),
     path('playlist/<int:playlist_id>/add-track/', PlaylistDetailView.as_view(), name='playlist-add-track'),
-    # path('playlist/<int:playlist_id>/remove-track/', PlaylistDetailView.as_view(), name='playlist-remove-track'),
     path('playlist/<int:playlist_id>/remove/', PlaylistDetailView.as_view(), name='playlist-remove'),
-   path('playlist/<int:playlist_id>/remove-track/', views.PlaylistRemoveTrackView.as_view(), name='playlist-remove-track'),
+    path('playlist/<int:playlist_id>/remove-track/', views.PlaylistRemoveTrackView.as_view(), name='playlist-remove-track'),
+    path('recommended-tracks/', RecommendedTracksView.as_view(), name='recommended-tracks'),
+    path('public-playlists/', PublicPlaylistsView.as_view(), name='public-playlists'),
 ]
 

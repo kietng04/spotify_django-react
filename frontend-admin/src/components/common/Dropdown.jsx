@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as Icons from "react-icons/tb";
 
-const Dropdown = ({ className, placeholder, onClick, options, selectedValue, type, value, icon, label,valid, required, name }) => {
+const Dropdown = ({ className, placeholder, onClick, options, selectedValue, type, value, icon, label,valid, required, name, style }) => {
   const [dropdown, setDropdown] = useState(false);
 
   const handleOptionClick = (option) => {
@@ -30,8 +30,7 @@ const Dropdown = ({ className, placeholder, onClick, options, selectedValue, typ
   }, [dropdown]);
 
   return (
-
-      <div className={`input_field ${className ? className : ""}`}>
+      <div className={`input_field ${className ? className : ""}`} style={style}>
       {
         label ? <label htmlFor={label}>{label}</label> : ''
       }

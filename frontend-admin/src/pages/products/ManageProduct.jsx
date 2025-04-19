@@ -12,7 +12,7 @@ import TableAction from "../../components/common/TableAction.jsx";
 import RangeSlider from "../../components/common/RangeSlider.jsx";
 import MultiSelect from "../../components/common/MultiSelect.jsx";
 
-const ManageTrack = () => {
+const ManageProduct = () => {
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -124,7 +124,7 @@ const ManageTrack = () => {
         alert(`Đã xóa bài hát #${itemID}`);
       }
     } else if (updateItem === "edit") {
-      navigate(`/tracks/edit/${itemID}`);
+      navigate(`/products/edit/${itemID}`);
     } else if (updateItem === "play") {
       // Play the track logic
       window.open(`http://localhost:8000/api/stream/${itemID}/`, "_blank");
@@ -196,25 +196,41 @@ const ManageTrack = () => {
       <div className="container">
         <div className="wrapper">
           <div className="content transparent">
-            <div className="content_head">
-              <Dropdown
-                placeholder="Tác vụ hàng loạt"
-                className="sm"
-                onClick={bulkActionDropDown}
-                options={bulkAction}
-              />
-              <Button
-                label="Bộ lọc nâng cao"
-                className="sm"
-                icon={<Icons.TbFilter />}
-                onClick={handleToggleOffcanvas}
-              />
-              <Input
-                placeholder="Tìm kiếm bài hát..."
-                className="sm table_search"
-                value={searchQuery}
-                onChange={handleSearchChange}
-              />
+            <div className="content_head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="left_actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <Dropdown
+                  placeholder="Tác vụ hàng loạt"
+                  className="sm"
+                  onClick={bulkActionDropDown}
+                  options={bulkAction}
+                  style={{ width: '300px' }}
+                />
+                <Button
+                  label="Bộ lọc nâng cao"
+                  className="sm"
+                  icon={<Icons.TbFilter />}
+                  onClick={handleToggleOffcanvas}
+                />
+                <Input
+                  placeholder="Tìm kiếm bài hát..."
+                  className="sm table_search"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                />
+              </div>
+              <div className="right_actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <Button
+                  label="Thêm bài hát"
+                  className="sm"
+                  icon={<Icons.TbPlus />}
+                  onClick={() => navigate('/products/add')}
+                />
+                <Button
+                  label="Làm mới"
+                  icon={<Icons.TbRefresh />}
+                  className="sm"
+                />
+              </div>
               <Offcanvas
                 isOpen={isOffcanvasOpen}
                 onClose={handleCloseOffcanvas}
@@ -264,17 +280,6 @@ const ManageTrack = () => {
                   />
                 </div>
               </Offcanvas>
-              <div className="btn_parent">
-                <Link to="/tracks/add" className="sm button">
-                  <Icons.TbPlus />
-                  <span>Thêm bài hát</span>
-                </Link>
-                <Button
-                  label="Làm mới"
-                  icon={<Icons.TbRefresh />}
-                  className="sm"
-                />
-              </div>
             </div>
             <div className="content_body">
               {loading ? (
@@ -364,4 +369,4 @@ const ManageTrack = () => {
   );
 };
 
-export default ManageTrack;
+export default ManageProduct;

@@ -66,15 +66,11 @@ class TokenValidationView(APIView):
     
     def get(self, request):
         user = request.user
-        return Response({
-            'valid': True,
-            'user_id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'avatarImg': user.avatarImg.url if user.avatarImg else None
-        })
+        serializer = UserSerializer(user)
+        response_data = serializer.data
+        response_data['valid'] = True
+        response_data.pop('password', None)
+        return Response(response_data)
     
 class UserViewSet(viewsets.ModelViewSet):
     queryset = MyUser.objects.all()
@@ -106,7 +102,10 @@ class LoginView(APIView):
                 'token': token.key,
                 'user_id': user.id,
                 'username': user.username,
-                'expires': token.expires
+                'expires': token.expires,
+                'role': getattr(user, 'role', 'user'),
+                'avatarImg': user.avatarImg.url if user.avatarImg else None,
+                'is_superuser': user.is_superuser
             })
         else:
             return Response({"error": "Thông tin đăng nhập không chính xác"}, status=status.HTTP_400_BAD_REQUEST)
@@ -161,7 +160,9 @@ class LoginWithGoogleView(APIView):
             'first_name': user.first_name,
             'last_name': user.last_name,
             'avatarImg': user.avatarImg.url if user.avatarImg else None,
-            'expires': token.expires
+            'role': getattr(user, 'role', 'user'),
+            'expires': token.expires,
+            'is_superuser': user.is_superuser
         })
 class RandomTracksView(APIView):
     permission_classes = [AllowAny]
@@ -815,15 +816,11 @@ class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        user = request.user
-        return Response({
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'role': user.role, 
-            'avatarImg': user.avatarImg.url if user.avatarImg and hasattr(user.avatarImg, 'url') else None,
-            'created_at': user.date_joined
-        })
+        serializer = UserSerializer(request.user)
+        response_data = serializer.data
+        response_data.pop('password', None)
+        response_data['is_superuser'] = request.user.is_superuser 
+        return Response(response_data)
     
 class GeminiAIView(APIView):
     authentication_classes = [CustomTokenAuthentication]
@@ -869,7 +866,7 @@ class GeminiAIView(APIView):
                     'id': msg.id,
                     'sender': msg.sender.id,
                     'text': msg.content,
-                    'timestamp': msg.timestamp.strftime('%H:%M'),
+                    'timestamp': msg.timestamp.isoformat(),
                     'is_read': msg.is_read
                 })
             
@@ -963,14 +960,14 @@ class GeminiAIView(APIView):
                     'id': user_message.id,
                     'sender': user_message.sender.id,
                     'text': user_message.content,
-                    'timestamp': user_message.timestamp.strftime('%H:%M'),
+                    'timestamp': user_message.timestamp.isoformat(),
                     'is_read': user_message.is_read
                 },
                 'ai_message': {
                     'id': ai_message.id,
                     'sender': ai_message.sender.id,
                     'text': ai_message.content,
-                    'timestamp': ai_message.timestamp.strftime('%H:%M'),
+                    'timestamp': ai_message.timestamp.isoformat(),
                     'is_read': ai_message.is_read
                 }
             })
@@ -1607,7 +1604,10 @@ class PlaylistDetailView(APIView):
         data = json.loads(request.body)
         track_id = data.get('track_id')
         if not track_id:
-            return Response({'error': 'Track ID required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Track ID is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         try:
             playlist_track = PlaylistTrack.objects.get(playlist=playlist, track_id=track_id)
@@ -1618,10 +1618,16 @@ class PlaylistDetailView(APIView):
                 pt.position = i
                 pt.save()
             
-            return Response({'success': True})
+            return Response({
+                'success': True, 
+                'message': 'Track removed from playlist'
+            })
             
-        except:
-            return Response({'error': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
+        except PlaylistTrack.DoesNotExist:
+            return Response(
+                {'error': 'Track not found in this playlist'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
                 
         
 class CheckLikeStatusView(APIView):
@@ -1696,3 +1702,69 @@ class PlaylistRemoveTrackView(APIView):
                 {'error': str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+# Recommended Tracks View
+import random # Make sure random is imported
+
+class RecommendedTracksView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            # Lấy tất cả tracks, sắp xếp ngẫu nhiên
+            tracks_qs = Track.objects.select_related('album').prefetch_related('artists').order_by('?')
+
+            # Xác định số lượng bài hát cần lấy (tối đa 10)
+            total_tracks = tracks_qs.count()
+            limit = min(total_tracks, 10) # Lấy tối đa 10 bài, hoặc ít hơn nếu không đủ
+
+            # Lấy số lượng bài hát đã xác định
+            recommended_tracks = tracks_qs[:limit]
+
+            # Chuẩn bị context cho serializer (để kiểm tra like status nếu user đăng nhập)
+            context = {'request': request}
+            if request.user and request.user.is_authenticated:
+                liked_track_ids = UserLikedTrack.objects.filter(
+                    user=request.user,
+                    track_id__in=[t.id for t in recommended_tracks]
+                ).values_list('track_id', flat=True)
+                context['liked_track_ids'] = liked_track_ids
+
+            # Serialize dữ liệu
+            serializer = SimpleTrackSerializer(recommended_tracks, many=True, context=context)
+            return Response(serializer.data)
+
+        except Exception as e:
+            logger.error(f"Error in RecommendedTracksView: {str(e)}") 
+            # import traceback
+            # logger.error(traceback.format_exc())
+            return Response({"error": "Could not fetch recommended tracks"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Public Playlists View
+class PublicPlaylistsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            # Lấy các playlist công khai, sắp xếp ngẫu nhiên
+            playlists_qs = Playlist.objects.filter(is_public=True).order_by('?')
+
+            # Xác định số lượng playlist cần lấy (tối đa 10)
+            total_playlists = playlists_qs.count()
+            limit = min(total_playlists, 10) # Lấy tối đa 10 playlist, hoặc ít hơn nếu không đủ
+
+            # Lấy số lượng playlist đã xác định
+            public_playlists = playlists_qs[:limit]
+
+            # Sử dụng lại hàm format_playlist_data để định dạng kết quả
+            # Cần đảm bảo hàm này có sẵn hoặc import nếu cần
+            # Giả sử format_playlist_data đã được định nghĩa trong file này
+            serializer = [format_playlist_data(p) for p in public_playlists]
+
+            return Response(serializer)
+
+        except Exception as e:
+            logger.error(f"Error in PublicPlaylistsView: {str(e)}")
+            # import traceback
+            # logger.error(traceback.format_exc())
+            return Response({"error": "Could not fetch public playlists"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

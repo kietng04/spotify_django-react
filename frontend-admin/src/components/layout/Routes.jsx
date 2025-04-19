@@ -1,75 +1,75 @@
-// General
-import NotFound from "../../pages/error/NotFound";
-import Dashboard from "../../pages/dashboard/Overview";
+// // General
+// import NotFound from "../../pages/error/NotFound"; // Commented out
+// import Dashboard from "../../pages/dashboard/Overview"; // Commented out
 
-// Media
-import Media from "../../pages/media/Media.jsx";
+// // Media
+// import Media from "../../pages/media/Media.jsx"; // Commented out
 
-// Settings
-import Api from "../../pages/settings/Api";
-import Email from "../../pages/settings/Email";
-import General from "../../pages/settings/General";
-import CronJob from "../../pages/settings/CronJob";
-import Permalink from "../../pages/settings/Permalink";
-import Languages from "../../pages/settings/Languages";
-import SocialLogin from "../../pages/settings/SocialLogin";
+// // Settings
+// import Api from "../../pages/settings/Api"; // Commented out
+// import Email from "../../pages/settings/Email"; // Commented out
+// import General from "../../pages/settings/General"; // Commented out
+// import CronJob from "../../pages/settings/CronJob"; // Commented out
+// import Permalink from "../../pages/settings/Permalink"; // Commented out
+// import Languages from "../../pages/settings/Languages"; // Commented out
+// import SocialLogin from "../../pages/settings/SocialLogin"; // Commented out
 
-// Products
+// Products (Keep these)
 import Attribute from "../../pages/products/Attribute";
 import AddProduct from "../../pages/products/AddProduct";
 import EditProduct from "../../pages/products/EditProduct";
 import ManageProduct from "../../pages/products/ManageProduct";
 
-// Orders
-import AddOrder from "../../pages/orders/AddOrder";
-import ManageOrder from "../../pages/orders/ManageOrder";
-import OrderDetail from "../../pages/orders/OrderDetail";
+// // Orders (Commented out)
+// import AddOrder from "../../pages/orders/AddOrder";
+// import ManageOrder from "../../pages/orders/ManageOrder";
+// import OrderDetail from "../../pages/orders/OrderDetail";
 
-// brand
-import AddBrand from "../../pages/brands/AddBrand";
-import ManageBrand from "../../pages/brands/ManageBrand";
-import EditBrand from "../../pages/brands/EditBrand";
+// // brand (Commented out)
+// import AddBrand from "../../pages/brands/AddBrand";
+// import ManageBrand from "../../pages/brands/ManageBrand";
+// import EditBrand from "../../pages/brands/EditBrand";
 
-// Customer
+// Customer (Keep these)
 import AddCustomer from "../../pages/customers/AddCustomer";
 import EditCustomer from "../../pages/customers/EditCustomer";
-import ManageCustomer from "../../pages/customers/ManageCustomer";
+import ManageUser from "../../pages/customers/ManageUser.jsx";
 
-// Users
-import AddUser from "../../pages/users/AddUser";
-import EditUser from "../../pages/users/EditUser";
-import UserList from "../../pages/users/UserList";
+// // Users (Assume related to Customers, keep for now - can be removed if unused)
+// import AddUser from "../../pages/users/AddUser";
+// import EditUser from "../../pages/users/EditUser";
+// import UserList from "../../pages/users/UserList";
 
-// Venue
-import AddVenue from "../../pages/venue/AddVenue";
-import ManageVenue from "../../pages/venue/ManageVenue";
+// // Venue (Commented out)
+// import AddVenue from "../../pages/venue/AddVenue";
+// import ManageVenue from "../../pages/venue/ManageVenue";
 
-// Categories
-import AddCategories from "../../pages/categories/AddCategories";
-import EditCategories from "../../pages/categories/EditCategories";
-import ManageCategories from "../../pages/categories/ManageCategories";
+// // Categories (Commented out)
+// import AddCategories from "../../pages/categories/AddCategories";
+// import EditCategories from "../../pages/categories/EditCategories";
+// import ManageCategories from "../../pages/categories/ManageCategories";
 
-// Reviews
-import ManageReviews from "../../pages/reviews/ManageReviews";
-import ReviewsDetail from "../../pages/reviews/ReviewsDetail";
+// // Reviews (Commented out)
+// import ManageReviews from "../../pages/reviews/ManageReviews";
+// import ReviewsDetail from "../../pages/reviews/ReviewsDetail";
 
-// Pages
-import AddPage from "../../pages/pages/AddPage";
-import EditPage from "../../pages/pages/EditPage";
-import ManagePages from "../../pages/pages/ManagePages";
+// // Pages (Commented out)
+// import AddPage from "../../pages/pages/AddPage";
+// import EditPage from "../../pages/pages/EditPage";
+// import ManagePages from "../../pages/pages/ManagePages";
 
-// Payment
-import ManageTransactions from "../../pages/payment/ManageTransactions";
-import PaymentMethod from "../../pages/payment/PaymentMethod";
-import TransactionDetail from "../../pages/payment/TransactionDetail";
+// // Payment (Commented out)
+// import ManageTransactions from "../../pages/payment/ManageTransactions";
+// import PaymentMethod from "../../pages/payment/PaymentMethod";
+// import TransactionDetail from "../../pages/payment/TransactionDetail";
 
 // Sorting and Comments
 
 const routes = [
-  {
-    path: "/",
-    element: <Dashboard />,
-  },
+  // {
+  //   path: "/", // Comment out Dashboard route
+  //   element: <Dashboard />,
+  // },
   // Catalog
   {
     path: "/catalog/product/add",
@@ -83,154 +83,154 @@ const routes = [
     path: "/catalog/product/manage/:productId",
     element: <EditProduct />,
   },
+  // {
+  //   path: "/catalog/product/attribute", // Comment out Attribute route
+  //   element: <Attribute />,
+  // },
+  // orders (Commented out)
+  // {
+  //   path: "/orders/add",
+  //   element: <AddOrder />,
+  // },
+  // {
+  //   path: "/orders/manage",
+  //   element: <ManageOrder />,
+  // },
+  // {
+  //   path: "/orders/manage/:orderID",
+  //   element: <OrderDetail />,
+  // },
+  // Catalog Categories (Commented out)
+  // {
+  //   path: "/catalog/categories/manage",
+  //   element: <ManageCategories />,
+  // },
+  // {
+  //   path: "/catalog/categories/:categoryid",
+  //   element: <EditCategories />,
+  // },
+  // customers -> Đổi thành users
   {
-    path: "/catalog/product/attribute",
-    element: <Attribute />,
-  },
-  // orders
-  {
-    path: "/orders/add",
-    element: <AddOrder />,
-  },
-  {
-    path: "/orders/manage",
-    element: <ManageOrder />,
-  },
-  {
-    path: "/orders/manage/:orderID",
-    element: <OrderDetail />,
-  },
-  // Catalog Categories
-  {
-    path: "/catalog/categories/manage",
-    element: <ManageCategories />,
-  },
-  {
-    path: "/catalog/categories/:categoryid",
-    element: <EditCategories />,
-  },
-  // customers
-  {
-    path: "/customers/add",
-    element: <AddCustomer />,
-  },
-  {
-    path: "/customers/manage",
-    element: <ManageCustomer />,
+    path: "/users/add", // Đổi path
+    element: <AddCustomer />, // Giữ nguyên component AddCustomer nếu file AddCustomer.jsx chưa đổi tên
   },
   {
-    path: "/customers/manage/:customerId",
-    element: <EditCustomer />,
-  },
-  // brand
-  {
-    path: "/brands/add",
-    element: <AddBrand />,
+    path: "/users/manage", // Đổi path
+    element: <ManageUser />, // Component đã đúng
   },
   {
-    path: "/brands/manage",
-    element: <ManageBrand />,
+    path: "/users/edit/:userId", // Đổi path và param
+    element: <EditCustomer />, // Giữ nguyên component EditCustomer nếu file EditCustomer.jsx chưa đổi tên
   },
-  {
-    path: "/brands/manage/:brandId",
-    element: <EditBrand />,
-  },
-  // Users
-  {
-    path: "/users/list",
-    element: <UserList />,
-  },
-  {
-    path: "/users/add",
-    element: <AddUser />,
-  },
-  {
-    path: "/users/list/:userid",
-    element: <EditUser />,
-  },
-  // Venue
-  {
-    path: "/venue/add",
-    element: <AddVenue />,
-  },
-  {
-    path: "/venue/manage",
-    element: <ManageVenue />,
-  },
-  // Reviews
-  {
-    path: "/reviews",
-    element: <ManageReviews />,
-  },
-  {
-    path: "/reviews/:reviewid",
-    element: <ReviewsDetail />,
-  },
-  // Pages
-  {
-    path: "/pages",
-    element: <ManagePages />,
-  },
-  {
-    path: "/pages/add",
-    element: <AddPage />,
-  },
-  {
-    path: "/pages/:pageId",
-    element: <EditPage />,
-  },
-  // Payment
-  {
-    path: "/payment/transactions",
-    element: <ManageTransactions />,
-  },
-  {
-    path: "/payment/transactions/:transactionId",
-    element: <TransactionDetail />,
-  },
-  {
-    path: "/payment/payment-method",
-    element: <PaymentMethod />,
-  },
-  // Media
-  {
-    path: "/media",
-    element: <Media />,
-  },
-  // Settings
-  {
-    path: "/setting/general",
-    element: <General />,
-  },
-  {
-    path: "/setting/email",
-    element: <Email />,
-  },
-  {
-    path: "/setting/cronJob",
-    element: <CronJob />,
-  },
-  {
-    path: "/setting/permalink",
-    element: <Permalink />,
-  },
-  {
-    path: "/setting/languages",
-    element: <Languages />,
-  },
-  {
-    path: "/setting/social-login",
-    element: <SocialLogin />,
-  },
-  {
-    path: "/setting/api",
-    element: <Api />,
-  },
-  // Not Found
-  {
-    path: "*",
-    element: <NotFound />,
-  },
+  // brand (Commented out)
+  // {
+  //   path: "/brands/add",
+  //   element: <AddBrand />,
+  // },
+  // {
+  //   path: "/brands/manage",
+  //   element: <ManageBrand />,
+  // },
+  // {
+  //   path: "/brands/manage/:brandId",
+  //   element: <EditBrand />,
+  // },
+  // Users (Commented out for now)
+  // {
+  //   path: "/users/list",
+  //   element: <UserList />,
+  // },
+  // {
+  //   path: "/users/add",
+  //   element: <AddUser />,
+  // },
+  // {
+  //   path: "/users/list/:userid",
+  //   element: <EditUser />,
+  // },
+  // Venue (Commented out)
+  // {
+  //   path: "/venue/add",
+  //   element: <AddVenue />,
+  // },
+  // {
+  //   path: "/venue/manage",
+  //   element: <ManageVenue />,
+  // },
+  // Reviews (Commented out)
+  // {
+  //   path: "/reviews",
+  //   element: <ManageReviews />,
+  // },
+  // {
+  //   path: "/reviews/:reviewid",
+  //   element: <ReviewsDetail />,
+  // },
+  // Pages (Commented out)
+  // {
+  //   path: "/pages",
+  //   element: <ManagePages />,
+  // },
+  // {
+  //   path: "/pages/add",
+  //   element: <AddPage />,
+  // },
+  // {
+  //   path: "/pages/:pageId",
+  //   element: <EditPage />,
+  // },
+  // Payment (Commented out)
+  // {
+  //   path: "/payment/transactions",
+  //   element: <ManageTransactions />,
+  // },
+  // {
+  //   path: "/payment/transactions/:transactionId",
+  //   element: <TransactionDetail />,
+  // },
+  // {
+  //   path: "/payment/payment-method",
+  //   element: <PaymentMethod />,
+  // },
+  // Media (Commented out)
+  // {
+  //   path: "/media",
+  //   element: <Media />,
+  // },
+  // Settings (Commented out)
+  // {
+  //   path: "/setting/general",
+  //   element: <General />,
+  // },
+  // {
+  //   path: "/setting/email",
+  //   element: <Email />,
+  // },
+  // {
+  //   path: "/setting/cronJob",
+  //   element: <CronJob />,
+  // },
+  // {
+  //   path: "/setting/permalink",
+  //   element: <Permalink />,
+  // },
+  // {
+  //   path: "/setting/languages",
+  //   element: <Languages />,
+  // },
+  // {
+  //   path: "/setting/social-login",
+  //   element: <SocialLogin />,
+  // },
+  // {
+  //   path: "/setting/api",
+  //   element: <Api />,
+  // },
+  // Not Found (Commented out)
+  // {
+  //   path: "*",
+  //   element: <NotFound />,
+  // },
 ];
 
 export default routes;

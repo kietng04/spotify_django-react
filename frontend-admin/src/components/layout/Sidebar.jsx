@@ -39,45 +39,46 @@ const Sidebar = () => {
       {/* menu links */}
       <ul className="menu_main">
         {navigation.map(function (navigationItem, key) {
+          const hasSubMenu = navigationItem.subMenu || navigationItem.submenus;
+          console.log("Sidebar Item:", {
+            name: navigationItem.name,
+            url: navigationItem.url,
+            hasSubMenu: hasSubMenu,
+            isRenderingDirectLink: !hasSubMenu
+          });
           return (
             <li key={key}>
-              {!navigationItem.subMenu ? (
+              {!hasSubMenu ? (
                 <NavLink
                   to={`${navigationItem.url}`}
                   className={`menu_link ${toggle === key ? 'active' : ''}`}
-                  onClick={() => handleManu(key)}
                 >
                   {navigationItem.icon}
                   <span>{navigationItem.name}</span>
-                  {navigationItem.subMenu ? <Icons.TbChevronDown /> : ''}
                 </NavLink>
               ) : (
                 <div className="menu_link" onClick={() => handleManu(key)}>
                   {navigationItem.icon}
                   <span>{navigationItem.name}</span>
-                  {navigationItem.subMenu ? <Icons.TbChevronDown /> : ''}
+                  <Icons.TbChevronDown />
                 </div>
               )}
-              {navigationItem.subMenu ? (
+              {hasSubMenu && (
                 <ul className={`sub_menu ${toggle === key ? 'active' : ''}`}>
-                  {navigationItem.subMenu &&
-                    navigationItem.subMenu.map(function (subNavigationItem, subKey) {
-                      return (
-                        <li key={subKey}>
-                          <NavLink
-                            to={`${navigationItem.url}${subNavigationItem.url}`}
-                            className="menu_link"
-                          >
-                            {subNavigationItem.icon}
-                            <span>{subNavigationItem.name}</span>
-                            {subNavigationItem.subMenu ? <Icons.TbChevronDown /> : ''}
-                          </NavLink>
-                        </li>
-                      );
-                    })}
+                  {(navigationItem.subMenu || navigationItem.submenus).map(function (subNavigationItem, subKey) {
+                    return (
+                      <li key={subKey}>
+                        <NavLink
+                          to={`${subNavigationItem.url}`}
+                          className="menu_link"
+                        >
+                          {subNavigationItem.icon}
+                          <span>{subNavigationItem.name}</span>
+                        </NavLink>
+                      </li>
+                    );
+                  })}
                 </ul>
-              ) : (
-                ''
               )}
             </li>
           );

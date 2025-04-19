@@ -6,11 +6,14 @@ import Login from "../../pages/login/Login.jsx";
 import Signup from "../../pages/login/Signup.jsx";
 import React, { useEffect } from "react";
 import { useSelector } from 'react-redux';
-import { Routes, Route, useNavigate } from "react-router-dom";
+import { Routes, Route, useNavigate, Outlet } from "react-router-dom";
 
 const Layout = () => {
   const isAuthenticated = useSelector(state => state.authentication.isAuthenticated);
   const navigate = useNavigate();
+
+  // Thêm console.log để kiểm tra giá trị isAuthenticated
+  console.log('Layout Component - isAuthenticated:', isAuthenticated);
 
   // useEffect(() => {
   //   if (!isAuthenticated) {
@@ -32,7 +35,7 @@ const Layout = () => {
           <Sidebar />
           <div className="admin_body">
             <Navbar />
-            <Main />
+            <Outlet />
             <Footer />
           </div>
         </>

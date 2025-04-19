@@ -15,12 +15,7 @@ const Navbar = () => {
     <div className="navbar">
       <div className="navbar_wrapper">
         <div className="container">
-          <div className="navbar_main">
-            <Input
-              icon={<Icons.TbSearch />}
-              placeholder="Search..."
-              className="navbar_search"
-            />
+          <div className="navbar_main" style={{ justifyContent: 'flex-end' }}>
             <div className="navbar_icons">
               <Link className="navbar_icon">
                 <Icons.TbLayoutGrid />

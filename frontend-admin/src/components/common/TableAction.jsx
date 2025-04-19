@@ -29,7 +29,7 @@ const TableAction = ({ actionItems, onActionItemClick }) => {
   }, []);
 
   return (
-    <div className="action" ref={dropdownRef}>
+    <div className="action" ref={dropdownRef} style={{ position: 'relative' }}>
       <div className="action_toggle" onClick={toggleAction}>
         <Icons.TbDots />
       </div>

@@ -3,11 +3,11 @@ import LeftArrow from "../../images/commonicons/leftarrow.svg";
 import RightArrow from "../../images/commonicons/rightarrow.svg";
 import DummyProfile from "../../images/commonimages/dummyprofile.jpeg";
 import Image from "next/image";
-import { 
-  Button, 
-  Menu, 
-  MenuButton, 
-  MenuItem, 
+import {
+  Button,
+  Menu,
+  MenuButton,
+  MenuItem,
   MenuList,
   Modal,
   ModalOverlay,
@@ -51,7 +51,7 @@ import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 
 const callApi = async () => {
-  // This function is now replaced with specific API call functions
+
 };
 
 function Header() {
@@ -59,32 +59,34 @@ function Header() {
   let {id} = router.query
   let [pageTitle,setPageTitle] = useState("")
   let searchQuery = useRecoilValue(searchValue)
-  // Enhanced user state with complete user information
+
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userData, setUserData] = useState({
     username: '',
     user_id: null,
     token: '',
-    expires: ''
+    expires: '',
+    role: null,
+    is_super: null,
+    avatarImg: null
   })
-  const [userRole, setUserRole] = useState(''); // Add this state for premium role
   const [randomTracks, setRandomTracks] = useState([]);
   const [isLoadingTracks, setIsLoadingTracks] = useState(false);
   const [currentPlayingId, setCurrentPlayingId] = useState(null);
   const audioRef = useRef(null);
-  
-  // Initialize audio on client-side only
+
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       audioRef.current = new Audio();
     }
   }, []);
-  
+
   const { isOpen, onOpen, onClose } = useDisclosure()
-  const { 
-    isOpen: isRegisterOpen, 
-    onOpen: onRegisterOpen, 
-    onClose: onRegisterClose 
+  const {
+    isOpen: isRegisterOpen,
+    onOpen: onRegisterOpen,
+    onClose: onRegisterClose
   } = useDisclosure()
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -94,30 +96,31 @@ function Header() {
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
 
-  // Function to fetch user profile with role
+
   const fetchCurrentUserDetails = async (token) => {
     if (!token) return;
-    
+
     try {
-      alert(token)
       const response = await fetch('http://localhost:8000/api/user-profile/', {
         headers: {
           'Authorization': `Token ${token}`
         }
       });
-      
+
       if (response.ok) {
         const userDetails = await response.json();
-        console.log('User details:', userDetails);
-        
-        // Update role state
-        setUserRole(userDetails.role);
-        
-        // Update userData with additional profile details
-        setUserData(prevData => ({
-          ...prevData,
-          role: userDetails.role
-        }));
+        console.log('fetchCurrentUserDetails - API Response:', userDetails);
+        const newUserState = {
+          username: userDetails.username,
+          user_id: userDetails.id,
+          token: token,
+          expires: userData.expires,
+          avatarImg: userDetails.avatarImg,
+          role: userDetails.role,
+          is_super: userDetails.is_superuser
+        };
+        console.log('fetchCurrentUserDetails - Setting userData:', newUserState);
+        setUserData(newUserState);
       } else {
         console.error('Failed to fetch user details');
       }
@@ -142,42 +145,42 @@ function Header() {
     }
   };
 
-  // Play track function for Header component
+
   const playTrackFromHeader = async (trackId) => {
-    // Make sure audio is initialized
+
     if (!audioRef.current) return;
-    
+
     try {
-      // If already playing this track, just pause it
+
       if (currentPlayingId === trackId && !audioRef.current.paused) {
         audioRef.current.pause();
         setCurrentPlayingId(null);
         return;
       }
-      
-      // Stop any currently playing track
+
+
       audioRef.current.pause();
-      
-      // Fetch stream URL from API
+
+
       const response = await fetch(`http://localhost:8000/api/stream/${trackId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch stream URL');
       }
-      
+
       const data = await response.json();
-      
-      // Set new audio source and play
+
+
       audioRef.current.src = data.stream_url;
       audioRef.current.play();
       setCurrentPlayingId(trackId);
-      
+
     } catch (error) {
       console.error('Error playing track:', error);
       alert('Error playing track. Please try again.');
     }
   };
 
-  // Format duration from milliseconds to minutes:seconds
+
   const formatDuration = (ms) => {
     const minutes = Math.floor(ms / 60000);
     const seconds = ((ms % 60000) / 1000).toFixed(0);
@@ -189,8 +192,8 @@ function Header() {
       document.getElementById("header_common_thing_playbutton").src =
       PlayIcon.src;
     }
-    
-    // Fetch random tracks when component mounts
+
+
     fetchRandomTracks();
   }, []);
 
@@ -198,64 +201,60 @@ function Header() {
     setPageTitle(document.title.split(" - ")[1])
   }, [router]);
 
-  // Check for existing token on component mount
+
   useEffect(() => {
     const savedUserData = localStorage.getItem('spotify_user');
-    
+
     if (savedUserData) {
       const parsedData = JSON.parse(savedUserData);
+      setUserData(prevData => ({
+        ...prevData,
+        ...parsedData 
+      }));
       setIsLoggedIn(true);
-      setUserData(parsedData);
-      
-      // Fetch current user details including role
-      fetchCurrentUserDetails(parsedData.token);
+      if (parsedData.token) {
+         fetchCurrentUserDetails(parsedData.token);
+      }
     }
   }, []);
 
   const handleLogin = async () => {
     try {
-      // Send request to Django backend
+
       const response = await fetch('http://localhost:8000/api/login/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           username: email,
-          password: password 
+          password: password
         }),
       });
 
       const data = await response.json();
-     
+
       if (response.ok) {
-        setUserData({
+        console.log('handleLogin - API Response:', data);
+        const newUserState = {
           username: data.username,
           user_id: data.user_id,
           token: data.token,
           expires: data.expires,
-          avatarImg: data.avatarImg || user.photoURL,
-          role: data.role 
-        });
-        
-        localStorage.setItem('spotify_user', JSON.stringify({
-          username: data.username,
-          user_id: data.user_id,
-          token: data.token,
-          expires: data.expires,
-          avatarImg: data.avatarImg || user.photoURL,
-          role: data.role
-        }));
-        
+          avatarImg: data.avatarImg,
+          role: data.role,
+          is_super: data.is_super
+        };
+        console.log('handleLogin - Setting userData:', newUserState);
+        setUserData(newUserState);
+        localStorage.setItem('spotify_user', JSON.stringify(newUserState));
         setIsLoggedIn(true);
         onClose();
-        
-        // Fetch user details after login
-        fetchCurrentUserDetails(data.token);
       } else {
-        alert('Login failed: ' + (data.detail || 'Unknown error'));
+
+        alert(data.error || data.detail || 'Login failed: An unknown error occurred');
       }
-      
+
     } catch (error) {
       console.error('Login error:', error);
       alert('Error connecting to server');
@@ -270,7 +269,7 @@ function Header() {
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const token = credential.accessToken;
       const user = result.user;
-  
+
       try {
         const response = await fetch('http://localhost:8000/api/google-auth/', {
           method: 'POST',
@@ -284,43 +283,35 @@ function Header() {
             photoURL: user.photoURL,
           }),
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
-          // Uncomment the following code to save user data
-          setUserData({
+          console.log('handleGoogleLogin - API Response:', data);
+          const newUserState = {
             username: data.username,
             user_id: data.user_id,
             token: data.token,
             expires: data.expires,
-            avatarImg: data.avatarImg || user.photoURL,
-            role: data.role
-          });
-          
-  
-          localStorage.setItem('spotify_user', JSON.stringify({
-            username: data.username,
-            user_id: data.user_id,
-            token: data.token,
-            expires: data.expires,
-            avatarImg: data.avatarImg || user.photoURL,
-            role: data.role
-          }));
-          
+            avatarImg: data.avatarImg,
+            role: data.role,
+            is_super: data.is_super
+          };
+          console.log('handleGoogleLogin - Setting userData:', newUserState);
+          setUserData(newUserState);
+          localStorage.setItem('spotify_user', JSON.stringify(newUserState));
           setIsLoggedIn(true);
           onClose();
-          
+
           console.log("Login success:", data);
-          // set image to user photoURL
-          
-          // Fetch user details after login
+
+
           fetchCurrentUserDetails(data.token);
         } else {
           console.error('Login failed:', data);
           alert('Login failed: ' + (data.error || 'Unknown error'));
         }
-        
+
       } catch (error) {
         console.error("Backend authentication error:", error);
         setUserData({
@@ -329,16 +320,16 @@ function Header() {
           token: token,
           expires: new Date(Date.now() + 24*60*60*1000).toISOString()
         });
-        
+
 
         localStorage.setItem('spotify_user', JSON.stringify({
           username: user.displayName || user.email.split('@')[0],
           user_id: user.uid,
-          token: token, 
+          token: token,
           expires: new Date(Date.now() + 24*60*60*1000).toISOString(),
           avatarImg: user.photoURL
         }));
-        
+
         setIsLoggedIn(true);
         onClose();
         alert("Server error, but logged in with Google credentials");
@@ -350,68 +341,82 @@ function Header() {
     });
   };
 
-  
+
   const handleRegister = async () => {
     if (registerPassword !== registerConfirmPassword) {
       alert('Mật khẩu xác nhận không khớp');
       return;
     }
-    
+
     try {
       const response = await fetch('http://localhost:8000/api/users/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           username: registerUsername,
           email: registerEmail,
-          password: registerPassword 
+          password: registerPassword
         }),
       });
 
       const data = await response.json();
 
       alert(JSON.stringify(data));
-      
+
       if (response.ok) {
         onRegisterClose();
-        
+
         setRegisterEmail('');
         setRegisterUsername('');
         setRegisterPassword('');
         setRegisterConfirmPassword('');
       }
-      
+
     } catch (error) {
       console.error('Registration error:', error);
       alert('Lỗi kết nối đến máy chủ');
     }
   };
 
-  // Handle logout properly
+
   const handleLogout = () => {
     setIsLoggedIn(false);
     setUserData({
       username: '',
       user_id: null,
       token: '',
-      expires: ''
+      expires: '',
+      role: null,
+      is_super: null,
+      avatarImg: null
     });
-    setUserRole('');
     localStorage.removeItem('spotify_user');
   };
 
-  // Handle profile navigation
+
   const goToProfile = () => {
     router.push('/profile');
   };
 
   const isProduction = process.env.NODE_ENV !== "development";
 
-  // First initials for avatar fallback
+
   const getInitials = (username) => {
     return username ? username.charAt(0).toUpperCase() : '?';
+  };
+
+  // Hàm xử lý chuyển hướng sang trang admin
+  const handleGoToAdmin = () => {
+    const token = userData.token; // Lấy token từ state
+    if (token) {
+      const adminUrl = `http://localhost:5173/?token=${token}`;
+      window.location.href = adminUrl; // Chuyển hướng
+    } else {
+      console.error("Cannot navigate to admin: token not found.");
+      // Có thể thông báo lỗi cho người dùng
+    }
   };
 
   return (
@@ -432,7 +437,7 @@ function Header() {
       </div>
 
       <div id="common_div" className="h-full px-4 flex items-center">
-        {/* Search and play controls - existing code */}
+
         {router.pathname.includes("/search") ? (
           <div className="relative">
             <input
@@ -492,8 +497,9 @@ function Header() {
       </div>
 
       <div className="flex items-center absolute right-8">
+        {console.log('Header State before Menu Render:', { isLoggedIn, userData })}
         {isLoggedIn ? (
-          // Enhanced user profile display with premium indicators
+
           <Menu>
             <MenuButton
               as={Button}
@@ -504,7 +510,7 @@ function Header() {
             >
               <Flex alignItems="center">
                 <Box position="relative">
-                  {userRole === 'premium' && (
+                  {userData.role === 'premium' && (
                     <Box
                       position="absolute"
                       top="-2px"
@@ -517,13 +523,13 @@ function Header() {
                       zIndex={1}
                     />
                   )}
-                  <Avatar 
+                  <Avatar
                     size="sm"
                     name={getInitials(userData.username)}
-                    src={userData.avatarImg || DummyProfile.src} 
-                    bg={userRole === 'premium' ? "yellow.400" : "green.500"}
+                    src={userData.avatarImg || DummyProfile.src}
+                    bg={userData.role === 'premium' ? "yellow.400" : "green.500"}
                   />
-                  {userRole === 'premium' && (
+                  {userData.role === 'premium' && (
                     <Box
                       position="absolute"
                       bottom="-2px"
@@ -545,14 +551,14 @@ function Header() {
                     </Box>
                   )}
                 </Box>
-                <Text 
-                  color="white" 
-                  ml={2} 
+                <Text
+                  color="white"
+                  ml={2}
                   fontWeight="medium"
                   display={{ base: 'none', md: 'block' }}
                 >
                   {userData.username}
-                  {userRole === 'premium' && (
+                  {userData.role === 'premium' && (
                     <Text as="span" color="gold" ml={1} fontSize="xs">
                       (Premium)
                     </Text>
@@ -579,8 +585,19 @@ function Header() {
               >
                 Account settings
               </MenuItem>
-               {/* Chỉ hiển thị nút Admin cho người dùng có role admin */}
- 
+
+              {(userData.is_super === 1 || userData.is_super === true) && (
+                <MenuItem
+                  _hover={{ backgroundColor: "#3F3D3C" }}
+                  bg="#292928"
+                  opacity="0.8"
+                  className="font-book text-sm"
+                  onClick={handleGoToAdmin}
+                >
+                  Go to Admin Panel
+                </MenuItem>
+              )}
+
               <MenuItem
                 _hover={{ backgroundColor: "#3F3D3C" }}
                 bg="#292928"
@@ -593,11 +610,11 @@ function Header() {
             </MenuList>
           </Menu>
         ) : (
-          // Show login and register buttons when not logged in
+
           <HStack spacing={4}>
-            <Button 
+            <Button
               onClick={onOpen}
-              bg="white" 
+              bg="white"
               color="black"
               _hover={{ bg: "#f8f8f8" }}
               borderRadius="full"
@@ -607,9 +624,9 @@ function Header() {
             >
               Log in
             </Button>
-            <Button 
+            <Button
               onClick={onRegisterOpen}
-              bg="white" 
+              bg="white"
               color="black"
               _hover={{ bg: "#f8f8f8" }}
               borderRadius="full"
@@ -621,15 +638,15 @@ function Header() {
           </HStack>
         )}
 
-        {/* Login Modal */}
+
         <Modal isOpen={isOpen} onClose={onClose}>
           <ModalOverlay />
           <ModalContent bg="#282828" color="white">
             <ModalHeader>Login to Spotify</ModalHeader>
             <ModalCloseButton />
             <ModalBody pb={6}>
-              {/* Google Sign-in Button */}
-              <Button 
+
+              <Button
                 w="100%"
                 leftIcon={<FaGoogle />}
                 onClick={handleGoogleLogin}
@@ -642,8 +659,8 @@ function Header() {
 
               <FormControl>
                 <FormLabel>Email</FormLabel>
-                <Input 
-                  placeholder="Email" 
+                <Input
+                  placeholder="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -651,8 +668,8 @@ function Header() {
 
               <FormControl mt={4}>
                 <FormLabel>Password</FormLabel>
-                <Input 
-                  type="password" 
+                <Input
+                  type="password"
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -669,7 +686,7 @@ function Header() {
           </ModalContent>
         </Modal>
 
-        {/* Register Modal */}
+
         <Modal isOpen={isRegisterOpen} onClose={onRegisterClose}>
           <ModalOverlay />
           <ModalContent bg="#282828" color="white">
@@ -678,8 +695,8 @@ function Header() {
             <ModalBody pb={6}>
               <FormControl>
                 <FormLabel>Email</FormLabel>
-                <Input 
-                  placeholder="Email" 
+                <Input
+                  placeholder="Email"
                   value={registerEmail}
                   onChange={(e) => setRegisterEmail(e.target.value)}
                 />
@@ -687,8 +704,8 @@ function Header() {
 
               <FormControl mt={4}>
                 <FormLabel>Username</FormLabel>
-                <Input 
-                  placeholder="Username" 
+                <Input
+                  placeholder="Username"
                   value={registerUsername}
                   onChange={(e) => setRegisterUsername(e.target.value)}
                 />
@@ -696,8 +713,8 @@ function Header() {
 
               <FormControl mt={4}>
                 <FormLabel>Password</FormLabel>
-                <Input 
-                  type="password" 
+                <Input
+                  type="password"
                   placeholder="Password"
                   value={registerPassword}
                   onChange={(e) => setRegisterPassword(e.target.value)}
@@ -706,8 +723,8 @@ function Header() {
 
               <FormControl mt={4}>
                 <FormLabel>Confirm Password</FormLabel>
-                <Input 
-                  type="password" 
+                <Input
+                  type="password"
                   placeholder="Confirm Password"
                   value={registerConfirmPassword}
                   onChange={(e) => setRegisterConfirmPassword(e.target.value)}
@@ -725,12 +742,12 @@ function Header() {
         </Modal>
       </div>
 
-      {/* Random Tracks Popover */}
+
       <Popover>
         <PopoverTrigger>
-          <Button 
-            leftIcon={<FaMusic />} 
-            colorScheme="teal" 
+          <Button
+            leftIcon={<FaMusic />}
+            colorScheme="teal"
             variant="outline"
             ml={4}
           >
@@ -754,9 +771,9 @@ function Header() {
                         {formatDuration(track.duration_ms)}
                       </Text>
                     </Text>
-                    <Button 
-                      colorScheme="green" 
-                      size="sm" 
+                    <Button
+                      colorScheme="green"
+                      size="sm"
                       onClick={() => playTrackFromHeader(track.id)}
                       leftIcon={currentPlayingId === track.id ? <Icon as={FaPause} /> : <Icon as={FaPlay} />}
                     >

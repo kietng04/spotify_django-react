@@ -7,6 +7,8 @@ import EpisodesSection from "./EpisodesSection";
 import PlaylistSection from "../components/PlaylistSection";
 import Hero from "./Hero";
 import SearchResult from "./SearchResult";
+import RecommendedSection from './RecommendedSection';
+import PublicPlaylistsSection from './PublicPlaylistsSection';
 
 function HomeSection() {
   let router = useRouter();
@@ -27,13 +29,8 @@ function HomeSection() {
       ) : (
         <>
           <Hero />
-          <Section section_name="Episodes for you "  className="overflow-hidden"/>
-          <Section
-            section_name="Recommended"
-            rounded
-                    play_button={false}
-                    className="overflow-hidden"
-          />
+          <PublicPlaylistsSection />
+          <RecommendedSection />
         </>
       )}
     </div>
