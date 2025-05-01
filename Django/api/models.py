@@ -5,7 +5,6 @@ from django.contrib.auth.models import AbstractUser
 
 class MyUser(AbstractUser):
     avatarImg = models.ImageField(upload_to='avatars/', blank=True, null=True)
-    
     ROLE_CHOICES = (
         ('admin', 'Admin'),
         ('user', 'User'),
@@ -20,7 +19,6 @@ class UserToken(models.Model):
     key = models.CharField(max_length=40, primary_key=True)
     created = models.DateTimeField(auto_now_add=True)
     expires = models.DateTimeField()
-    
     def save(self, *args, **kwargs):
         if not self.key:
             self.key = str(uuid.uuid4())[:40]
@@ -195,4 +193,17 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender.username} at {self.timestamp}"
+
+class PremiumPayment(models.Model):
+    order_id = models.CharField(max_length=255, unique=True, help_text="Unique ID from the payment provider")
+    user = models.ForeignKey(MyUser, on_delete=models.CASCADE, related_name='premium_payments')
+    purchase_date = models.DateTimeField(auto_now_add=True, verbose_name="Ngày mua")
+
+    def __str__(self):
+        return f"Payment Record #{self.id} (Order: {self.order_id}) for {self.user.username}"
+
+    class Meta:
+        ordering = ['-purchase_date']
+        verbose_name = "Premium Payment"
+        verbose_name_plural = "Premium Payments"
     

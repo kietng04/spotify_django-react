@@ -1,10 +1,10 @@
 import boto3
 import traceback
-from django.shortcuts import render
-from rest_framework import viewsets
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import MyUser, UserToken, Track, UserLikedTrack, Conversation, Message, Playlist, PlaylistTrack, UserFollowedPlaylist, Album, Artist, Genre
-from .serializers import UserSerializer, SimpleTrackSerializer, AlbumSerializer, GenreSerializer, ArtistSerializer
+from django.shortcuts import get_object_or_404, render
+from rest_framework import viewsets, generics
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from .models import MyUser, UserToken, Track, UserLikedTrack, Conversation, Message, Playlist, PlaylistTrack, UserFollowedPlaylist, Album, Artist, Genre, PremiumPayment, Genre
+from .serializers import PlaylistSerializer, UserSerializer, SimpleTrackSerializer, AlbumSerializer, GenreSerializer, ArtistSerializer, PremiumPaymentSerializer, AlbumSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -1831,7 +1831,7 @@ class RecommendedTracksView(APIView):
 # Public Playlists View
 class PublicPlaylistsView(APIView):
     permission_classes = [AllowAny]
-
+    
     def get(self, request):
         try:
             # Lấy các playlist công khai, sắp xếp ngẫu nhiên
@@ -1856,34 +1856,3 @@ class PublicPlaylistsView(APIView):
             # import traceback
             # logger.error(traceback.format_exc())
             return Response({"error": "Could not fetch public playlists"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-# Thêm view mới ở cuối file
-class AlbumListView(APIView):
-    permission_classes = [AllowAny] # Hoặc [IsAuthenticated] nếu cần
-
-    def get(self, request):
-        try:
-            albums = Album.objects.all().prefetch_related('artists') # Lấy tất cả albums
-            serializer = AlbumSerializer(albums, many=True, context={'request': request})
-            return Response(serializer.data)
-        except Exception as e:
-            print(f"Error fetching albums: {str(e)}")
-            print(traceback.format_exc())
-            return Response({
-                "detail": f"Lỗi khi lấy danh sách albums: {str(e)}"
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-class GenreListView(APIView):
-    permission_classes = [AllowAny] # Hoặc [IsAuthenticated] nếu cần
-
-    def get(self, request):
-        try:
-            genres = Genre.objects.all().order_by('name') # Lấy tất cả genres, sắp xếp theo tên
-            serializer = GenreSerializer(genres, many=True)
-            return Response(serializer.data)
-        except Exception as e:
-            print(f"Error fetching genres: {str(e)}")
-            print(traceback.format_exc())
-            return Response({
-                "detail": f"Lỗi khi lấy danh sách thể loại: {str(e)}"
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

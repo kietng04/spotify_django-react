@@ -31,29 +31,35 @@ const ManageUser = () => {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      const token = localStorage.getItem('adminAuthToken');
+      const token = localStorage.getItem("adminAuthToken");
       if (!token) {
-        console.error("Authentication token not found in localStorage. Cannot fetch users.");
-        setError("User not authenticated for admin panel."); 
+        console.error(
+          "Authentication token not found in localStorage. Cannot fetch users."
+        );
+        setError("User not authenticated for admin panel.");
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-        console.log("Fetching users from API with token..."); 
+        console.log("Fetching users from API with token...");
 
         const response = await fetch("http://localhost:8000/api/userz/list/", {
           method: "GET",
           headers: {
-            'Authorization': `Token ${token}`,
-          }
+            Authorization: `Token ${token}`,
+          },
         });
         console.log("API Response Status:", response.status);
 
         if (response.status === 401 || response.status === 403) {
-          console.error("Authorization failed (401/403). Token might be invalid or expired, or user lacks permissions for this specific API.");
-          setError("Authorization failed. Please log in again or check permissions.");
+          console.error(
+            "Authorization failed (401/403). Token might be invalid or expired, or user lacks permissions for this specific API."
+          );
+          setError(
+            "Authorization failed. Please log in again or check permissions."
+          );
           setLoading(false);
           return;
         }
@@ -77,12 +83,12 @@ const ManageUser = () => {
         setError(err.message);
       } finally {
         setLoading(false);
-        console.log("Finished fetching users."); 
+        console.log("Finished fetching users.");
       }
     };
 
     fetchUsers();
-  }, []); 
+  }, []);
 
   const bulkAction = [
     { value: "all", label: "All" },
@@ -148,9 +154,7 @@ const ManageUser = () => {
           if (response.ok) {
             setUsers((prevUsers) =>
               prevUsers.map((user) =>
-                user.id === itemID
-                  ? { ...user, status: "Block" }
-                  : user
+                user.id === itemID ? { ...user, status: "Block" } : user
               )
             );
             alert(`Đã vô hiệu hóa người dùng #${itemID} thành công`);
@@ -185,9 +189,7 @@ const ManageUser = () => {
           if (response.ok) {
             setUsers((prevUsers) =>
               prevUsers.map((user) =>
-                user.id === itemID
-                  ? { ...user, status: "Active" }
-                  : user
+                user.id === itemID ? { ...user, status: "Active" } : user
               )
             );
             alert(`Đã kích hoạt người dùng #${itemID} thành công`);
@@ -245,17 +247,11 @@ const ManageUser = () => {
   };
   const indexOfLastUser = currentPage * Number(selectedValue);
   const indexOfFirstUser = indexOfLastUser - Number(selectedValue);
-  const currentUsers = filteredUsers.slice(
-    indexOfFirstUser,
-    indexOfLastUser
-  );
+  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
 
   const formatDisplayName = (name) => {
-    if (!name) return "";
-    return name.replace(
-      /@gmail\.com|@yahoo\.com|@outlook\.com|@hotmail\.com/gi,
-      ""
-    );
+    if (!name || typeof name !== 'string') return 'N/A'; 
+    return name.trim() ? name : 'N/A';
   };
 
   console.log("Current State:", { users, loading, error });
@@ -300,7 +296,7 @@ const ManageUser = () => {
                   className="sm"
                   onClick={() => {
                     setFilter(null);
-                    setSearchQuery(""); 
+                    setSearchQuery("");
                     setCurrentPage(1);
                   }}
                 />
@@ -330,7 +326,11 @@ const ManageUser = () => {
                   </thead>
                   <tbody>
                     {console.log("Current users to render:", currentUsers)}
-                    {currentUsers.length === 0 && !loading && <tr><td colSpan="10">No users found.</td></tr>}
+                    {currentUsers.length === 0 && !loading && (
+                      <tr>
+                        <td colSpan="10">No users found.</td>
+                      </tr>
+                    )}
                     {currentUsers.map((user, key) => {
                       return (
                         <tr key={key}>
@@ -367,10 +367,11 @@ const ManageUser = () => {
                             />
                           </td>
                           <td colSpan="4">
-                            <Link to={user.id.toString()}>
-                              {formatDisplayName(
-                                user.name || user.username
-                              )}
+                            <Link 
+                              to={`/users/edit/${user.id}`}
+                              className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              {formatDisplayName(user.name) || user.username}
                             </Link>
                           </td>
                           <td>{user.email}</td>
@@ -393,8 +394,7 @@ const ManageUser = () => {
                             {!(
                               (user.role === "user" &&
                                 user.is_superuser === true) ||
-                              (user.role === "admin" &&
-                                user.is_staff === true)
+                              (user.role === "admin" && user.is_staff === true)
                             ) && <span style={{ color: "#999" }}>-</span>}
                           </td>
                           <td className="td_status">
@@ -404,10 +404,7 @@ const ManageUser = () => {
                                 className="light-success"
                               />
                             ) : (
-                              <Badge
-                                label="Block"
-                                className="light-danger"
-                              />
+                              <Badge label="Block" className="light-danger" />
                             )}
                           </td>
                           <td className="td_date">{user.createdAt}</td>
@@ -438,8 +435,7 @@ const ManageUser = () => {
               <Pagination
                 currentPage={currentPage}
                 totalPages={
-                  Math.ceil(filteredUsers.length / Number(selectedValue)) ||
-                  1
+                  Math.ceil(filteredUsers.length / Number(selectedValue)) || 1
                 }
                 onPageChange={onPageChange}
               />

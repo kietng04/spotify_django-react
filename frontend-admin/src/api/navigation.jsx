@@ -27,25 +27,6 @@ const navigation = [
       },
     ],
   },
-  // Orders (Xóa nếu không dùng)
-  // {
-  //   name: "Orders",
-  //   url: "/orders",
-  //   icon: <Icons.TbChecklist className="menu_icon" />,
-  //   subMenu:[
-  //     {
-  //       name: "Manage Order",
-  //       url: "/manage",
-  //       icon: <Icons.TbList className="menu_icon" />,
-  //     },
-  //     {
-  //       name: "add Order",
-  //       url: "/add",
-  //       icon: <Icons.TbCirclePlus className="menu_icon" />,
-  //     },
-  //   ]
-  // },
-  // Users
   {
     id: "customers",
     name: "Users",
@@ -64,140 +45,48 @@ const navigation = [
       },
     ],
   },
-  // Sales (Giữ lại nếu có liên quan)
-  // {
-  //   name: "Sales",
-  //   url: "/venue",
-  //   icon: <Icons.TbCurrencyDollar className="menu_icon" />,
-  // },
-
-  // ----- CÁC MỤC BỊ XÓA -----
-  // Reviews
-  // {
-  //   name: "Reviews",
-  //   url: "/reviews",
-  //   icon: <Icons.TbStar className="menu_icon" />,
-  // },
-  // Brand
-  // {
-  //   name: "Brands",
-  //   url: "/brands",
-  //   icon: <Icons.TbTags className="menu_icon" />,
-  //   subMenu:[
-  //     {
-  //       name: "Manage Brands",
-  //       url: "/manage",
-  //       icon: <Icons.TbList className="menu_icon" />,
-  //     },
-  //     {
-  //       name: "add Brand",
-  //       url: "/add",
-  //       icon: <Icons.TbCirclePlus className="menu_icon" />,
-  //     },
-  //   ]
-  // },
-  // Pages
-  // {
-  //   name: "Pages",
-  //   url: "/pages",
-  //   icon: <Icons.TbPlug className="menu_icon" />,
-  // },
-  // Media
-  // {
-  //   name: "Media",
-  //   url: "/media",
-  //   icon: <Icons.TbPhoto className="menu_icon" />,
-  // },
-  // Payment
-  // {
-  //   name: "Payment",
-  //   url: "/payment",
-  //   icon: <Icons.TbCreditCard className="menu_icon" />,
-  //   subMenu: [
-  //     // Transactions
-  //     {
-  //       name: "Transactions",
-  //       url: "/transactions",
-  //       icon: <Icons.TbCurrencyDollar className="menu_icon" />,
-  //     },
-  //     // Payment Methods
-  //     {
-  //       name: "Payment Methods",
-  //       url: "/payment-method",
-  //       icon: <Icons.TbDeviceMobileDollar className="menu_icon" />,
-  //     },
-  //   ],
-  // },
-  // Settings
-  // {
-  //   name: "Settings",
-  //   url: "/setting",
-  //   icon: <Icons.TbSettings className="menu_icon" />,
-  //   subMenu: [
-  //     // General
-  //     {
-  //       name: "General",
-  //       url: "/general",
-  //       icon: <Icons.TbSettings className="menu_icon" />,
-  //     },
-  //     // Email
-  //     {
-  //       name: "Email",
-  //       url: "/email",
-  //       icon: <Icons.TbMail className="menu_icon" />,
-  //     },
-  //     // Languages
-  //     {
-  //       name: "Languages",
-  //       url: "/languages",
-  //       icon: <Icons.TbLanguage className="menu_icon" />,
-  //     },
-  //     // Permalink
-  //     {
-  //       name: "Permalink",
-  //       url: "/permalink",
-  //       icon: <Icons.TbLink className="menu_icon" />,
-  //     },
-  //     // Social Login
-  //     {
-  //       name: "Social Login",
-  //       url: "/social-login",
-  //       icon: <Icons.TbLogin className="menu_icon" />,
-  //     },
-  //     // Cronjob
-  //     {
-  //       name: "Cronjob",
-  //       url: "/cronjob",
-  //       icon: <Icons.TbClock className="menu_icon" />,
-  //     },
-  //     // API Settings
-  //     {
-  //       name: "API Settings",
-  //       url: "/api",
-  //       icon: <Icons.TbSettings className="menu_icon" />,
-  //     },
-  //   ],
-  // },
-  // Platform Administration
-  // {
-  //   name: "Administration",
-  //   url: "/admin",
-  //   icon: <Icons.TbShieldLock className="menu_icon" />,
-  //   subMenu: [
-  //     // Roles and Permissions
-  //     {
-  //       name: "Roles and Permissions",
-  //       url: "/admin/roles",
-  //       icon: <Icons.TbUserShield className="menu_icon" />,
-  //     },
-  //     // Users
-  //     {
-  //       name: "Users",
-  //       url: "/admin/users",
-  //       icon: <Icons.TbUsers className="menu_icon" />,
-  //     },
-  //   ],
-  // },
+  {
+    id: "artists",
+    name: "Artists",
+    url: "/artists/manage",
+    icon: <Icons.TbMicrophone2 className="menu_icon" />,
+    submenus: [
+      // Use submenus instead of subMenu to match Users structure
+      {
+        id: "manage_artists",
+        name: "Manage Artists",
+        url: "/artists/manage",
+      },
+      {
+        id: "add_artist",
+        name: "Add Artist",
+        url: "/artists/add",
+      },
+    ],
+  },
+  {
+    id: "genres",
+    name: "Genres",
+    url: "/genres/manage",
+    icon: <Icons.TbCategory className="menu_icon" />,
+    submenus: [
+      {
+        id: "manage_genres",
+        name: "Manage Genres",
+        url: "/genres/manage",
+      },
+      {
+        id: "add_genre",
+        name: "Add Genre",
+        url: "/genres/add",
+      },
+    ],
+  },
+  {
+    name: "Payment Orders",
+    url: "/orders", // Define the route for the new page
+    icon: <Icons.TbReceipt className="menu_icon" />, // Using receipt icon
+  },
 ];
 
 export default navigation;
