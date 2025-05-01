@@ -4,280 +4,298 @@ import { useNavigate } from "react-router-dom";
 import Input from "../../components/common/Input.jsx";
 import Button from "../../components/common/Button.jsx";
 import Dropdown from "../../components/common/Dropdown.jsx";
-import FileUpload from "../../components/common/FileUpload.jsx"; // Assuming you have a FileUpload component
+import FileUpload from "../../components/common/FileUpload.jsx";
 
 const AddTrack = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [albums, setAlbums] = useState([]); // Start with empty array
+  const [albums, setAlbums] = useState([]);
+  const [genres, setGenres] = useState([]);
   const [fields, setFields] = useState({
     title: "",
     audio_file: null,
+    cover_image: null,
     duration_ms: 0,
-    track_number: 1,
-    album: null, // Start with null, let dropdown select
+    album: null,
+    genre: null,
   });
 
-  // Fetch albums (replace with actual API call)
   useEffect(() => {
     const fetchAlbums = async () => {
       try {
-        const response = await fetch("http://localhost:8000/api/albums/list/"); // Replace with your album API
+        const response = await fetch("http://localhost:8000/api/albums/list/");
         if (response.ok) {
           const data = await response.json();
-          setAlbums(data.map(album => ({
-            value: album.id,
-            label: album.title
-          })));
-          // Optionally set default album if albums list is not empty
-          if (data.length > 0) {
-            // setFields(prev => ({ ...prev, album: data[0].id }));
-          }
+          setAlbums(data.map(album => ({ value: album.id, label: album.title })));
         } else {
-          console.error("Không thể lấy danh sách album");
+          console.error("Could not fetch albums list");
           setErrorMessage("Không thể tải danh sách album.");
-          // Set sample data for development if API fails
-          setAlbums([
-            { value: 1, label: "Sample Album 1" },
-            { value: 2, label: "Sample Album 2" },
-          ]);
+          setAlbums([{ value: 1, label: "Sample Album 1" }, { value: 2, label: "Sample Album 2" }]); 
         }
       } catch (error) {
-        console.error("Lỗi khi lấy danh sách album:", error);
+        console.error("Error fetching albums:", error);
         setErrorMessage("Lỗi tải danh sách album: " + error.message);
-         setAlbums([
-            { value: 1, label: "Sample Album 1" },
-            { value: 2, label: "Sample Album 2" },
-          ]);
+        setAlbums([{ value: 1, label: "Sample Album 1" }, { value: 2, label: "Sample Album 2" }]); 
       }
     };
-
     fetchAlbums();
   }, []);
 
+  useEffect(() => {
+    const fetchGenres = async () => {
+      try {
+        const adminAuthToken = localStorage.getItem('adminAuthToken');
+        const headers = {};
+        if (adminAuthToken) {
+          headers['Authorization'] = `Token ${adminAuthToken}`;
+        } else {
+           console.warn("Admin token not found. Genre list might be restricted.");
+        }
+
+        const response = await fetch("http://localhost:8000/api/genres/list/", { headers });
+        if (response.ok) {
+          const data = await response.json();
+          setGenres(data.map(genre => ({ value: genre.id, label: genre.name })));
+        } else {
+          console.error("Could not fetch genres list. Status:", response.status);
+          setErrorMessage(`Không thể tải danh sách thể loại (${response.status}).`);
+           setGenres([{ value: 1, label: "Sample Genre 1" }, { value: 2, label: "Sample Genre 2" }]); 
+        }
+      } catch (error) {
+        console.error("Error fetching genres:", error);
+        setErrorMessage("Lỗi mạng hoặc lỗi không xác định khi tải thể loại: " + error.message);
+         setGenres([{ value: 1, label: "Sample Genre 1" }, { value: 2, label: "Sample Genre 2" }]); 
+      }
+    };
+    fetchGenres();
+  }, []);
+
   const handleInputChange = (key, value) => {
-    setFields({
-      ...fields,
-      [key]: value,
-    });
+    setFields(prev => ({ ...prev, [key]: value }));
   };
 
   const handleAlbumSelect = (selectedOption) => {
-    setFields({
-      ...fields,
-      album: selectedOption.value, // Store the selected album ID
-    });
+    setFields(prev => ({ ...prev, album: selectedOption.value }));
+  };
+
+  const handleGenreSelect = (selectedOption) => {
+    console.log("Genre selected:", selectedOption);
+    setFields(prev => ({ ...prev, genre: selectedOption ? selectedOption.value : null }));
+  };
+
+  const handleImageUpload = (file) => {
+    if (!file) {
+      setFields(prev => ({ ...prev, cover_image: null }));
+      setErrorMessage("");
+      return;
+    }
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setErrorMessage("Vui lòng chỉ chọn file hình ảnh JPG hoặc PNG.");
+      setFields(prev => ({ ...prev, cover_image: null }));
+      return;
+    }
+    setErrorMessage("");
+    setFields(prev => ({ ...prev, cover_image: file }));
   };
 
   const handleAudioUpload = (file) => {
     if (!file) {
-        setFields(prev => ({ ...prev, audio_file: null, duration_ms: 0 }));
-        return;
+      setFields(prev => ({ ...prev, audio_file: null, duration_ms: 0 }));
+      setErrorMessage("");
+      return;
     }
-
-    if (!file.type.startsWith('audio/')) {
-        setErrorMessage("Vui lòng chọn một file âm thanh hợp lệ (ví dụ: MP3, WAV).");
-        setFields(prev => ({ ...prev, audio_file: null, duration_ms: 0 }));
-        return;
+    if (!file.type.startsWith('audio/') && !file.type.startsWith('video/mp4')) {
+      setErrorMessage("Vui lòng chọn một file âm thanh (MP3, WAV...) hoặc video MP4.");
+      setFields(prev => ({ ...prev, audio_file: null, duration_ms: 0 }));
+      return;
     }
-
-    console.log("File được chọn:", file.name);
-    setErrorMessage(""); // Clear previous errors
-
-    setFields(prev => ({
-      ...prev,
-      audio_file: file,
-      duration_ms: 0, // Reset duration until calculated
-    }));
-
-    // Calculate duration
+    setErrorMessage("");
+    setFields(prev => ({ ...prev, audio_file: file, duration_ms: 0 }));
     const audio = document.createElement('audio');
-    audio.preload = 'metadata'; // Important for getting duration quickly
-
+    audio.preload = 'metadata';
     audio.onloadedmetadata = () => {
-      console.log("Đã đọc metadata:", audio.duration);
-      window.URL.revokeObjectURL(audio.src); // Clean up URL object
-      setFields((prev) => ({
-        ...prev,
-        // Ensure duration is a positive number, default to 0 if NaN or invalid
-        duration_ms: Math.round(audio.duration * 1000) > 0 ? Math.round(audio.duration * 1000) : 0,
-      }));
+      const duration = Math.round(audio.duration * 1000);
+      window.URL.revokeObjectURL(audio.src);
+      setFields(prev => ({ ...prev, duration_ms: duration > 0 ? duration : 0 }));
     };
-
     audio.onerror = (e) => {
-      console.error("Lỗi khi đọc file audio metadata:", e);
-      window.URL.revokeObjectURL(audio.src); // Clean up URL object
-      setErrorMessage("Không thể đọc thời lượng file audio. Vui lòng thử file khác.");
-      setFields((prev) => ({
-        ...prev,
-        duration_ms: 0, // Set duration to 0 on error
-        // audio_file: null // Optionally clear the file on error
-      }));
+      console.error("Error loading audio metadata:", e);
+      window.URL.revokeObjectURL(audio.src);
+      setErrorMessage("Không thể đọc thời lượng file audio.");
+      setFields(prev => ({ ...prev, duration_ms: 0, audio_file: null }));
     };
-
     audio.src = URL.createObjectURL(file);
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent default form submission
+  const formatDuration = (ms) => {
+    if (!ms || ms <= 0) return "0:00";
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  };
 
-    // --- Validation --- 
-    if (!fields.title.trim()) {
-      setErrorMessage("Vui lòng nhập tên bài hát.");
-      return;
-    }
-    if (!fields.album) {
-      setErrorMessage("Vui lòng chọn một album.");
-      return;
-    }
-    if (!fields.audio_file) {
-      setErrorMessage("Vui lòng tải lên file âm thanh.");
-      return;
-    }
-     if (fields.duration_ms <= 0 && fields.audio_file) {
-      setErrorMessage("Không thể xác định thời lượng file âm thanh hoặc file không hợp lệ.");
-      // Optionally try recalculating or ask user to re-upload
-      // return; // Decide if you want to block submission here
-    }
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!fields.title.trim()) return setErrorMessage("Vui lòng nhập tên bài hát.");
+    if (!fields.album) return setErrorMessage("Vui lòng chọn một album.");
+    if (!fields.audio_file) return setErrorMessage("Vui lòng tải lên file âm thanh.");
 
     setIsSubmitting(true);
     setErrorMessage("");
 
+    const formData = new FormData();
+    formData.append("title", fields.title.trim());
+    formData.append("album", fields.album);
+    if (fields.genre) {
+      formData.append("genres", fields.genre);
+    }
+    formData.append("audio_file", fields.audio_file);
+    if (fields.cover_image) {
+      formData.append("cover_image", fields.cover_image);
+    }
+    formData.append("duration_ms", fields.duration_ms > 0 ? fields.duration_ms : 1);
+
+    console.log("Submitting FormData:", Object.fromEntries(formData));
+
     try {
-      console.log("Submitting data:", fields);
-      const formData = new FormData();
-
-      formData.append("title", fields.title.trim());
-      formData.append("album", fields.album); // Send album ID
-      formData.append("audio_file", fields.audio_file);
-      formData.append("duration_ms", fields.duration_ms > 0 ? fields.duration_ms : 1000); // Send duration, default to 1s if 0
-      formData.append("track_number", fields.track_number || 1);
-      // Add other fields required by the backend API
-      // formData.append("disc_number", 1);
-      // formData.append("explicit", false);
-      // formData.append("popularity", 50);
-      // formData.append("artists", 1); // Send default artist ID or implement artist selection
-
-      console.log("FormData prepared:");
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}: ${value}`);
-      }
-
       const response = await fetch("http://localhost:8000/api/tracks/add/", {
         method: "POST",
-        // 'Content-Type': 'multipart/form-data' is set automatically by browser for FormData
         body: formData,
-        // Add authentication headers if required by backend
-        // headers: { 'Authorization': `Bearer ${your_token}` },
+        headers: localStorage.getItem('adminAuthToken') ? { 'Authorization': `Token ${localStorage.getItem('adminAuthToken')}` } : {},
       });
 
       if (response.ok) {
-        const result = await response.json(); // Get response data
-        console.log("Track added successfully:", result);
+        const result = await response.json();
         alert(`Bài hát "${result.title}" đã được thêm thành công!`);
-        navigate("/tracks/manage"); // Navigate to manage page
+        navigate("/products/manage");
       } else {
-        // Attempt to parse error response
-        let errorData;
-        try {
-            errorData = await response.json();
-        } catch (e) {
-            errorData = { detail: `Lỗi máy chủ: ${response.status} ${response.statusText}` };
-        }
-        console.error("API Error Response:", errorData);
-        setErrorMessage(errorData.detail || "Không thể thêm bài hát. Đã xảy ra lỗi.");
-      }
+        let errorData = { detail: `Lỗi máy chủ: ${response.status}` };
+        try { errorData = await response.json(); } catch (e) { /* Ignore */ }
+        setErrorMessage(errorData.detail || "Lỗi không xác định khi thêm bài hát.");
+      } 
     } catch (error) {
-      console.error("Lỗi khi gửi form thêm bài hát:", error);
-      setErrorMessage("Lỗi kết nối hoặc lỗi không xác định: " + error.message);
+      console.error("Error submitting form:", error);
+      setErrorMessage("Lỗi kết nối: " + error.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <section className="add-track">
+    <section className="add-track page_section">
       <div className="container">
-        <div className="wrapper">
-          <div className="content" style={{ maxWidth: '700px', margin: '0 auto' }}> {/* Center content */}
-            <div className="content_item">
-              <h2 className="sub_heading">Thêm bài hát mới</h2>
+        <div className="page_header">
+          <h2 className="page_title">Thêm bài hát mới</h2>
+        </div>
 
-              {errorMessage && (
-                <div
-                  className="error-message"
-                  style={{ color: 'white', backgroundColor: '#f44336', padding: '10px 15px', marginBottom: '15px', borderRadius: '4px' }}
-                >
-                  {errorMessage}
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit}> {/* Use form element */} 
-                <div className="column" style={{ marginBottom: '15px' }}>
-                  <Input
-                    type="text"
-                    placeholder="Nhập tên bài hát"
-                    label="Tên bài hát*"
-                    icon={<Icons.TbMusic />}
-                    value={fields.title}
-                    onChange={(value) => handleInputChange("title", value)}
-                    required // Add basic HTML5 validation
-                  />
-                </div>
-
-                 <div className="column" style={{ marginBottom: '15px' }}>
-                   <Dropdown
-                    label="Album*"
-                    placeholder="-- Chọn Album --"
-                    options={albums} // Pass fetched albums
-                    selectedValue={albums.find(a => a.value === fields.album)?.label} // Show selected album label
-                    onClick={handleAlbumSelect} // Use the correct handler
-                    required
-                   />
-                 </div>
-
-                 <div className="column" style={{ marginBottom: '15px' }}>
-                    <Input
-                        type="number"
-                        placeholder="Số thứ tự track"
-                        label="Số thứ tự track"
-                        icon={<Icons.TbListNumbers />}
-                        value={fields.track_number}
-                        min="1" // Set minimum value
-                        onChange={(value) => handleInputChange("track_number", parseInt(value) || 1)} // Ensure it's a number
-                    />
-                 </div>
-
-                <div className="column" style={{ marginBottom: '15px' }}>
-                   <FileUpload
-                       label="File âm thanh* (MP3, WAV, etc.)"
-                       onFileSelect={handleAudioUpload}
-                       // Pass other props needed by FileUpload component
-                   />
-                   {/* Display selected file name and calculated duration */} 
-                   {fields.audio_file && (
-                       <div style={{ marginTop: '5px', fontSize: '0.9em', color: '#ccc' }}>
-                           Đã chọn: {fields.audio_file.name}
-                           {fields.duration_ms > 0 && ` - Thời lượng: ${Math.floor(fields.duration_ms / 1000 / 60)}:${String(Math.floor(fields.duration_ms / 1000) % 60).padStart(2, '0')}`}
-                           {fields.duration_ms === 0 && fields.audio_file && ` (Đang đọc thời lượng...)`}
-                       </div>
-                   )}
-                </div>
-
-                {/* Add other fields here if needed (Artist, etc.) */}
-
-                <div className="form_footer" style={{ marginTop: '20px', textAlign: 'right' }}>
-                  <Button
-                    label={isSubmitting ? "Đang thêm..." : "Thêm bài hát"}
-                    className="button sm primary" // Use appropriate button classes
-                    type="submit" // Set button type to submit
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </form>
+        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '5px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          {errorMessage && (
+            <div className="alert alert-danger" role="alert" style={{ marginBottom: '15px' }}>
+              {errorMessage}
             </div>
+          )}
+
+          <form onSubmit={handleSubmit} noValidate>
+            <div style={{ marginBottom: '15px' }}>
+               <Input
+                  type="text"
+                  placeholder="Nhập tên bài hát"
+                  label="Tên bài hát*"
+                  icon={<Icons.TbMusic />}
+                  value={fields.title}
+                  onChange={(value) => handleInputChange("title", value)}
+                  required
+               />
+            </div>
+            
+            <div style={{ marginBottom: '15px' }}>
+               <Dropdown
+                  label="Album*"
+                  placeholder="-- Chọn Album --"
+                  options={albums}
+                  selectedValue={albums.find(a => a.value === fields.album)?.label}
+                  onClick={handleAlbumSelect}
+                  required
+               />
+            </div>
+            
+            <div style={{ marginBottom: '15px' }}>
+               <Dropdown
+                  label="Thể loại"
+                  placeholder="-- Chọn Thể loại --"
+                  options={genres}
+                  selectedValue={genres.find(g => g.value === fields.genre)?.label}
+                  onClick={handleGenreSelect}
+               />
+            </div>  
+
+            <div style={{ marginBottom: '15px' }}>
+                <FileUpload
+                    label="File âm thanh* (MP3, WAV, OGG, MP4)"
+                    onFileSelect={handleAudioUpload}
+                    accept="audio/*,video/mp4"
+                    required
+                />
+                <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f8f9fa', border: '1px dashed #ced4da', borderRadius: '4px', fontSize: '0.9em', color: '#495057', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {fields.audio_file ? (
+                        <>
+                          <Icons.TbFileMusic />
+                          <span style={{ fontWeight: 500, flexGrow: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {fields.audio_file.name}
+                          </span>
+                          <span style={{ fontStyle: 'italic', color: '#6c757d', whiteSpace: 'nowrap' }}>
+                            {fields.duration_ms === 0 ? "(Đang đọc...)" : formatDuration(fields.duration_ms)}
+                          </span>
+                        </>
+                    ) : (
+                        <span style={{ color: '#6c757d' }}>Chưa chọn file</span>
+                    )}
+                </div>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+                <FileUpload
+                    label="Ảnh bìa (JPG, PNG)"
+                    onFileSelect={handleImageUpload}
+                    accept=".jpg, .jpeg, .png, image/jpeg, image/png"
+                />
+                <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f8f9fa', border: '1px dashed #ced4da', borderRadius: '4px', fontSize: '0.9em', color: '#495057', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {fields.cover_image ? (
+                        <>
+                            <Icons.TbPhoto />
+                            <span style={{ fontWeight: 500, flexGrow: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {fields.cover_image.name}
+                            </span>
+                            <span style={{ fontStyle: 'italic', color: '#6c757d', whiteSpace: 'nowrap' }}>
+                                ({ (fields.cover_image.size / 1024).toFixed(1) } KB)
+                            </span>
+                        </>
+                    ) : (
+                        <span style={{ color: '#6c757d' }}>Chưa chọn ảnh bìa</span>
+                    )}
+                </div>
+            </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
+            <Button
+              label="Hủy bỏ"
+              className="button sm outline"
+              icon={<Icons.TbX />}
+              onClick={() => navigate('/products/manage')}
+              type="button"
+            />
+            <Button
+              label={isSubmitting ? "Đang thêm..." : "Thêm bài hát"}
+              className="button sm"
+              icon={<Icons.TbDeviceFloppy />}
+              type="submit"
+              disabled={isSubmitting}
+            />
           </div>
+          </form>
         </div>
       </div>
     </section>

@@ -1,47 +1,70 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import * as Icons from "react-icons/tb";
-import Button from "./Button.jsx";
 
-const DropZone = () => {
-  const [uploadedFiles, setUploadedFiles] = useState([]);
+// Đổi tên component và nhận props
+const FileUpload = ({ label, onFileSelect, accept, required }) => {
 
+  // Hàm xử lý khi file được chọn/kéo thả
   const onDrop = useCallback(acceptedFiles => {
-    const filesWithPreview = acceptedFiles.map(file => Object.assign(file, {
-      preview: URL.createObjectURL(file),
-      id: Date.now() + file.name // Assign a unique ID to each file
-    }));
-    setUploadedFiles(prevFiles => [...prevFiles, ...filesWithPreview]);
-  }, []);
+    // Gọi hàm onFileSelect của component cha với file đầu tiên (hoặc null nếu không có file)
+    if (acceptedFiles && acceptedFiles.length > 0) {
+      onFileSelect(acceptedFiles[0]);
+    } else {
+      // Có thể gọi onFileSelect(null) nếu muốn xử lý trường hợp hủy chọn
+      // onFileSelect(null);
+    }
+  }, [onFileSelect]); // Thêm onFileSelect vào dependency array
 
-  const onDelete = id => {
-    setUploadedFiles(prevFiles => prevFiles.filter(file => file.id !== id));
-  };
+  // Cấu hình useDropzone, sử dụng prop 'accept'
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: accept ? accept.split(',').reduce((acc, type) => ({ ...acc, [type.trim()]: [] }), {}) : undefined, // Chuyển đổi chuỗi accept thành object yêu cầu bởi react-dropzone v11+
+    multiple: false // Chỉ cho phép chọn 1 file mỗi lần
+  });
 
-  const { getRootProps, getInputProps } = useDropzone({ onDrop });
   return (
-    <div className="drop-zone-container">
-      <div {...getRootProps()} className="drop-zone">
+    <div className="file-upload-container">
+      {/* Hiển thị label */}
+      {label && (
+        <label className="form-label" style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>
+          {label}{required && <span style={{ color: 'red', marginLeft: '2px' }}>*</span>}
+        </label>
+      )}
+      {/* Dropzone Area */}
+      <div 
+        {...getRootProps()} 
+        className={`drop-zone ${isDragActive ? 'active' : ''}`}
+        style={dropzoneStyles}
+      >
         <input {...getInputProps()} />
-        <p>Drag & drop files here, or click to select files</p>
+        <Icons.TbCloudUpload size={30} style={{ marginBottom: '10px', color: '#6c757d' }} />
+        {isDragActive ?
+          <p style={textStyles}>Thả file vào đây...</p> : 
+          <p style={textStyles}>Kéo thả file vào đây, hoặc nhấn để chọn file</p>
+        }
       </div>
-      {
-        uploadedFiles.length > 0 ?
-        <div className="uploaded-images">
-          {uploadedFiles.map((file, key) => (
-            <div key={key} className="uploaded-image-container">
-              <figure className="uploaded-image">
-                <img src={file.preview} alt={file.name} />
-                <Button onClick={() => onDelete(file.id)} icon={<Icons.TbTrash/>} className="sm" />
-              </figure>
-              <span className="line_clamp">{file.name}</span>
-            </div>
-          ))}
-        </div>
-        : ""
-      }
+      {/* Loại bỏ phần hiển thị preview và nút xóa ở đây */}
     </div>
   );
 };
 
-export default DropZone;
+// Style cơ bản cho dropzone (có thể tùy chỉnh thêm)
+const dropzoneStyles = {
+  border: '2px dashed #ced4da',
+  borderRadius: '5px',
+  padding: '20px',
+  textAlign: 'center',
+  cursor: 'pointer',
+  backgroundColor: '#f8f9fa',
+  transition: 'border .24s ease-in-out, background-color .24s ease-in-out'
+};
+
+const textStyles = {
+  margin: 0,
+  fontSize: '0.95em',
+  color: '#495057'
+};
+
+// Đảm bảo export đúng tên component
+export default FileUpload;

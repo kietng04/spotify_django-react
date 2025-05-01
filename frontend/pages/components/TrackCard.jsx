@@ -10,8 +10,8 @@ import { useTrack } from '../../context/TrackContext'; // Import useTrack
 function TrackCard({ track }) {
   const { playTrack, currentTrack, isPlaying } = useTrack(); // Lấy thêm currentTrack và isPlaying
 
-  // Lấy thông tin cần thiết từ track object
-  const imageUrl = track.album?.cover_image_url || DummyMusicThumb1.src;
+  // Ưu tiên track_cover_url, sau đó đến album cover, cuối cùng là ảnh mặc định
+  const imageUrl = track.track_cover_url || track.album?.cover_image_url || DummyMusicThumb1.src;
   const title = track.title || 'Unknown Title';
   const artists = track.artists?.map(artist => artist.name).join(', ') || 'Unknown Artist';
 

@@ -1,0 +1,46 @@
+/* frontend-admin/src/styles/globalOverrides.css */
+
+/* Ensure dropdown wrappers can establish stacking context */
+.dropdown {
+  position: relative; /* Crucial for containing positioned children and z-index */
+}
+
+/* Ensure the *active* dropdown wrapper appears above other inactive dropdowns */
+.dropdown.active { 
+  z-index: 1051 !important; /* Higher z-index for the active wrapper */
+}
+
+/* Ensure dropdown options appear above other elements *within* their dropdown */
+.dropdown_options {
+  z-index: 1050 !important; /* High z-index for the options list itself */
+  position: absolute; 
+}
+
+/* Establish stacking context for each input field containing a dropdown */
+.input_field {
+  position: relative; /* Make input fields stacking contexts */
+  z-index: 1; /* Default z-index for inactive fields */
+}
+
+/* Elevate the *entire* input field when its dropdown options are active */
+.input_field:has(.dropdown_options.active) { 
+  z-index: 1051 !important; /* Higher z-index for the active field */
+}
+
+/* Ensure dropdown options are positioned correctly and have high z-index */
+.dropdown_options {
+  position: absolute; 
+  z-index: 1050 !important; /* Needs to be high, but below the active field's z-index */
+  /* Add other necessary styles if missing from style.min.css */
+  background-color: white; /* Example */
+  border: 1px solid #ccc; /* Example */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Example */
+  left: 0; /* Position relative to the input_field wrapper */
+  right: 0;
+  top: 100%; /* Position below the input field wrapper */
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 5px 0;
+  margin: 5px 0 0 0; /* Add small top margin */
+} 

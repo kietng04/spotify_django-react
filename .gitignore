@@ -39,3 +39,6 @@ build/
 htmlcov/
 .coverage
 .coverage.*
+
+# media
+media/

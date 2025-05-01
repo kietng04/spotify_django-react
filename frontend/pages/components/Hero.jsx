@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import DummyMusicThumb1 from "../../images/commonimages/dummymusicthumb1.jpeg";
 import DummyMusicThumb2 from "../../images/commonimages/dummymusicthumb2.jpeg";
@@ -12,7 +12,6 @@ import {
   changeHeaderBackgroundColor,
   getImageAverageColor,
   greetingMessageShow,
-  playPauseAction,
 } from "../../lib/tools";
 import { useRouter } from "next/router";
 import { useAuth } from "../../context/AuthContext";
@@ -23,119 +22,50 @@ function Hero() {
   const [heroMusicData, setHeroMusicData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [averageColor, setAverageColor] = useState("");
-  const [currentPlayingId, setCurrentPlayingId] = useState(null);
-  const audioRef = useRef(null);
   
 
   const { playTrack: playTrackFromContext, isPlaying, currentTrack, togglePlayPause } = useTrack();
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      audioRef.current = new Audio();
-    }
-  }, []);
 
   const handlePlayTrack = (trackId) => {
     if (currentTrack?.id === trackId) {
       togglePlayPause();
       return;
     }
-
     playTrackFromContext(trackId);
-  };
-
-  const dummyMusicData = [
-    {
-      thumbnail: DummyMusicThumb5,
-      name: "sao ko đôiẻ",
-    },
-    {
-      thumbnail: DummyMusicThumb1,
-      name: "Jamalul wujud",
-    },
-    {
-      thumbnail: DummyMusicThumb2,
-      name: "Muhammed al muqit",
-    },
-    {
-      thumbnail: DummyMusicThumb3,
-      name: "Jiske aane se muqammal",
-    },
-    {
-      thumbnail: DummyMusicThumb4,
-      name: "Ullinullil manju",
-    },
-    {
-      thumbnail: DummyMusicThumb6,
-      name: "Motivational speech",
-    },
-  ];
-
-
-  useEffect(() => {
-    const fetchRandomTracks = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch('http://localhost:8000/api/random-tracks/');
-        
-        if (response.ok) {
-          const data = await response.json();
-          const formattedData = data.map(track => ({
-            thumbnail: track.album?.cover_image_url || DummyMusicThumb1.src,
-            name: track.title,
-            artistName: track.artists && track.artists.length > 0 ? track.artists[0].name : "Unknown Artist",
-            id: track.id,
-            uri: track.uri
-          }));
-          setHeroMusicData(formattedData);
-        } else {
-          console.error("Failed to fetch random tracks");
-          setHeroMusicData(dummyMusicData);
-        }
-      } catch (error) {
-        console.error("Error fetching random tracks:", error);
-        setHeroMusicData(dummyMusicData);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchRandomTracks();
-  }, []);
-
-  const handlePlayLocal = async (trackId, buttonElement) => {
-    if (!audioRef.current) return;
-    
-    try {
-      if (currentPlayingId === trackId && !audioRef.current.paused) {
-        audioRef.current.pause();
-        setCurrentPlayingId(null);
-        return;
-      }
-      
-      audioRef.current.pause();
-      
-      const response = await fetch(`http://localhost:8000/api/stream/${trackId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch stream URL');
-      }
-      
-      const data = await response.json();
-      
-      audioRef.current.src = data.stream_url;
-      audioRef.current.play();
-      setCurrentPlayingId(trackId);
-      
-    } catch (error) {
-      console.error('Error playing track:', error);
-      alert('Error playing track. Please try again.');
-    }
   };
 
   useEffect(() => {
     greetingMessageShow();
+    fetchHeroData();
   }, []);
 
+  async function fetchHeroData() {
+    setIsLoading(true);
+    try {
+      const response = await fetch("http://localhost:8000/api/recommended-tracks/");
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+
+      const tracksWithPlayState = data.map((track) => ({
+        ...track,
+      }));
+
+      setHeroMusicData(tracksWithPlayState);
+
+      if (tracksWithPlayState.length > 0 && tracksWithPlayState[0].album?.cover_image_url) {
+        getImageAverageColor(tracksWithPlayState[0].album.cover_image_url, setAverageColor);
+      } else {
+        setAverageColor("#070606");
+      }
+    } catch (error) {
+      console.error("Fetch error:", error);
+      setAverageColor("#070606");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   useEffect(() => {
     changeHeaderBackgroundColor(
@@ -182,60 +112,53 @@ function Hero() {
             ))
           ) : (
             heroMusicData.map((data, index) => {
+              const isCurrent = currentTrack?.id === data.id;
+              const isThisPlaying = isCurrent && isPlaying;
+              const coverUrl = data.track_cover_url;
+
               return (
                 <div
-                  key={data.name + index}
+                  key={data.id}
                   data-track-id={data.id}
-                  onMouseEnter={() =>
-                    data.thumbnail && typeof data.thumbnail === 'string' 
-                      ? getImageAverageColor(data.thumbnail, setAverageColor)
-                      : getImageAverageColor(data.thumbnail.src, setAverageColor)
-                  }
-                  onMouseLeave={() =>
-                    heroMusicData[0]?.thumbnail && typeof heroMusicData[0].thumbnail === 'string'
-                      ? getImageAverageColor(heroMusicData[0].thumbnail, setAverageColor)
-                      : getImageAverageColor(heroMusicData[0]?.thumbnail?.src || DummyMusicThumb1.src, setAverageColor)
-                  }
+                  onMouseEnter={() => {
+                    if (coverUrl) {
+                      getImageAverageColor(coverUrl, setAverageColor);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    const firstItemCover = heroMusicData[0]?.track_cover_url;
+                    const fallbackCover = DummyMusicThumb1.src;
+                    getImageAverageColor(firstItemCover || fallbackCover, setAverageColor);
+                  }}
                   className="xl:w-[31.6%] lg:w-[48%] w-full z-50 music-card shadow-lg shadow-black/10 bg-opacity-40 cursor-pointer flex items-center xl:h-[45%] lg:h-[25%] h-[70px] mr-4 my-2 bg-[#313030] hover:bg-[#4a4a47] transition-colors rounded-sm relative"
                 >
-                  {typeof data.thumbnail === 'string' ? (
+                  {coverUrl ? (
                     <img 
-                      src={data.thumbnail} 
-                      alt={data.name} 
-                      className="h-full w-[70px] shadow-lg shadow-black/50"
+                      src={coverUrl} 
+                      alt={data.title || 'Track cover'}
+                      className="h-full w-[70px] shadow-lg shadow-black/50 object-cover"
                     />
                   ) : (
-                    <Image
-                      src={data.thumbnail}
-                      alt={data.name}
-                      priority={true}
-                      className="h-full w-fit shadow-lg shadow-black/50"
-                    />
+                    <div className="h-full w-[70px] bg-gray-700 flex items-center justify-center">
+                      <i className="fas fa-music text-gray-400"></i> 
+                    </div>
                   )}
-                  <div className="ml-4">
-                    <h3 className="text-white font-medium text-md">
-                      {data.name}
+                  
+                  <div className="ml-4 flex-1 overflow-hidden">
+                    <h3 className="text-white font-medium text-md truncate">
+                      {data.title || 'Unknown Track'}
                     </h3>
-                    {data.artistName && (
-                      <p className="text-gray-400 text-sm">
-                        {data.artistName}
+                    {data.artists && data.artists.length > 0 && (
+                      <p className="text-gray-400 text-sm truncate">
+                        {data.artists.map(artist => artist.name).join(', ')}
                       </p>
                     )}
                   </div>
                   <button className="h-12 shadow-lg shadow-black/50 flex items-center opacity-0 transition-opacity card-play-button justify-center w-12 bg-[#1DDF62] rounded-full absolute right-4">
                     <Image
-                      src={currentTrack?.id === data.id && isPlaying ? PauseIcon : PlayIcon}
+                      src={isThisPlaying ? PauseIcon : PlayIcon}
                       onClick={(e) => {
-  
                         handlePlayTrack(data.id);
-                        
-                        playPauseAction(
-                          e.target,
-                          PlayIcon,
-                          PauseIcon,
-                          undefined,
-                          undefined,
-                        );
                       }}
                       height={19}
                       width={19}

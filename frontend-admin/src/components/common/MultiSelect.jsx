@@ -4,137 +4,135 @@ import * as Icons from "react-icons/tb";
 const MultiSelect = ({
   className,
   label,
-  options,
+  options = [],
   placeholder,
-  isSelected,
-  isMulti = false,
-  onChange
+  isSelected = [],
+  isMulti = true,
+  onChange,
+  style
 }) => {
-  const [value, setValue] = useState("");
-  const [selected, setSelected] = useState(isSelected ? [isSelected] : []);
-  const [bool, setBool] = useState(false);
-  const [filteredOptions, setFilteredOptions] = useState(options);
-  const inputRef = useRef(null);
-
-  const selectedHandle = (value) => {
-    if (!isMulti) {
-      setSelected([value]);
-      setBool(false);
-      setValue("");
-      setFilteredOptions(options);
-    } else {
-      setSelected((prevSelected) => [...prevSelected, value]);
-      setBool(false);
-      setValue("");
-      setFilteredOptions(options);
-    }
-    onChange(isMulti ? [...selected, value] : [value])
-  };
-
-  const inputClickHandle = () => {
-    setBool(!bool);
-  };
-
-  const changeHandler = (e) => {
-    const inputValue = e.target.value;
-    setValue(inputValue);
-
-    const filtered = options.filter((option) =>
-      option.label.toLowerCase().includes(inputValue.toLowerCase())
-    );
-    setFilteredOptions(filtered);
-  };
-
-  const handleOutsideClick = (e) => {
-    if (inputRef.current && !inputRef.current.contains(e.target)) {
-      setBool(false);
-    }
-  };
-
-  const removeTagHandle = (tag) => {
-    setSelected(selected.filter((selectedValue) => selectedValue !== tag));
-    setFilteredOptions(options);
-  };
-
-  const clearAllHandle = () => {
-    setSelected([]);
-    setFilteredOptions(options);
-  };
+  const [selectedIds, setSelectedIds] = useState(Array.isArray(isSelected) ? isSelected : []);
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
-    document.addEventListener("mousedown", handleOutsideClick);
+    setSelectedIds(Array.isArray(isSelected) ? isSelected : []);
+  }, [isSelected]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
+  // Get labels of selected options
+  const getSelectedLabels = () => {
+    return selectedIds
+      .map(id => {
+        const option = options.find(opt => opt.value === id || opt.label === id);
+        return option ? option.label : id;
+      })
+      .filter(Boolean);
+  };
+
+  // Toggle dropdown visibility
+  const toggleDropdown = () => {
+    setIsOpen(!isOpen);
+  };
+
+  // Handle option selection
+  const handleSelect = (option) => {
+    const value = option.value || option.label;
+    
+    let newSelectedIds;
+    if (isMulti) {
+      if (selectedIds.includes(value)) {
+        newSelectedIds = selectedIds.filter(id => id !== value);
+      } else {
+        newSelectedIds = [...selectedIds, value];
+      }
+    } else {
+      newSelectedIds = [value];
+      setIsOpen(false);
+    }
+    
+    setSelectedIds(newSelectedIds);
+    if (onChange) onChange(newSelectedIds);
+  };
+
+  // Remove a selected item
+  const removeItem = (e, item) => {
+    e.stopPropagation();
+    const newSelectedIds = selectedIds.filter(id => id !== item);
+    setSelectedIds(newSelectedIds);
+    if (onChange) onChange(newSelectedIds);
+  };
+
+  // Selected options labels
+  const selectedLabels = getSelectedLabels();
+  
   return (
-    <div
-      className={`multi_select input_field ${className ? className : ""}`}
-      ref={inputRef}
-    >
-      {label ? <label>{label}</label> : ""}
-      <div className="selected_tags">
-        {isMulti && selected.map((select, key) => (
-          <span
-            key={key}
-            className={`${!isMulti ? "selected_tag single" : "selected_tag"}`}
-          >
-            {select}
-            {!isMulti ? (
-              ""
+    <div className={`input_field ${className || ""}`} style={style}>
+      {label && <label>{label}</label>}
+      
+      <div ref={dropdownRef} className="dropdown">
+        <div 
+          className={`dropdown_box ${isOpen ? "active" : ""}`} 
+          onClick={toggleDropdown}
+        >
+          <div className="dropdown_box_input">
+            {selectedLabels.length === 0 ? (
+              <span className="placeholder">{placeholder}</span>
+            ) : isMulti ? (
+              <div className="tag_container">
+                {selectedLabels.map((label, index) => (
+                  <span key={index} className="selected_tag">
+                    {label}
+                    <Icons.TbX 
+                      onClick={(e) => removeItem(e, selectedIds[index])} 
+                      className="tag_remove"
+                    />
+                  </span>
+                ))}
+              </div>
             ) : (
-              <Icons.TbX
-                className="remove_tags"
-                onClick={() => removeTagHandle(select)}
-              />
+              <span>{selectedLabels[0]}</span>
             )}
-          </span>
-        ))}
-      </div>
-      <div className="multi_input">
-        {!isMulti && selected.length === 0 ? (
-          <input
-            type="text"
-            className={bool ? "active" : ""}
-            placeholder={placeholder}
-            value={value}
-            onChange={changeHandler}
-            onClick={inputClickHandle}
-          />
-        ) : isMulti ? (
-          <input
-            type="text"
-            className={bool ? "active" : ""}
-            placeholder={placeholder}
-            value={value}
-            onChange={changeHandler}
-            onClick={inputClickHandle}
-          />
-        ) : (
-          <span className="default_select">{selected}</span>
+          </div>
+          <Icons.TbChevronDown className={`dropdown_box_icon ${isOpen ? "active" : ""}`} />
+        </div>
+        
+        {isOpen && (
+          <ul className="dropdown_options">
+            {options && options.length > 0 ? (
+              options.map((option, index) => {
+                const value = option.value || option.label;
+                const isItemSelected = selectedIds.includes(value);
+                
+                return (
+                  <li
+                    key={index}
+                    className={`dropdown_option ${isItemSelected ? "selected" : ""}`}
+                    onClick={() => handleSelect(option)}
+                  >
+                    <span>{option.label}</span>
+                    {isItemSelected && <Icons.TbCheck className="check_icon" />}
+                  </li>
+                );
+              })
+            ) : (
+              <li className="dropdown_option disabled">Không có lựa chọn</li>
+            )}
+          </ul>
         )}
-        <Icons.TbChevronDown className="chevron_down" />
-        {selected.length !== 0 ? (
-          <Icons.TbX className="remove_tags" onClick={clearAllHandle} />
-        ) : null}
       </div>
-      <ul className={`select_dropdown ${bool ? "active" : ""}`}>
-        {filteredOptions.map((option, key) => {
-          const isOptionSelected = selected.includes(option.label);
-          return (
-            <li
-              key={key}
-              className={`select_dropdown_item ${
-                isOptionSelected ? "disabled" : ""
-              }`}
-              onClick={() => !isOptionSelected && selectedHandle(option.label)}
-            >
-              <button>{option.label}</button>
-            </li>
-          );
-        })}
-      </ul>
     </div>
   );
 };

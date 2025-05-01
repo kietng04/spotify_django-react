@@ -1,8 +1,10 @@
+import boto3
+import traceback
 from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import MyUser, UserToken, Track, UserLikedTrack, Conversation, Message, Playlist, PlaylistTrack, UserFollowedPlaylist
-from .serializers import UserSerializer, SimpleTrackSerializer
+from .models import MyUser, UserToken, Track, UserLikedTrack, Conversation, Message, Playlist, PlaylistTrack, UserFollowedPlaylist, Album, Artist, Genre
+from .serializers import UserSerializer, SimpleTrackSerializer, AlbumSerializer, GenreSerializer, ArtistSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -50,6 +52,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny    
+from django.views.decorators.clickjacking import xframe_options_exempt
 GEMINI_API_KEY = "AIzaSyCDBht1ZEgJStn-ycfpFGdWr599E6XC5WA"
 client = genai.Client(api_key=GEMINI_API_KEY)
 
@@ -181,21 +184,39 @@ class RandomTracksView(APIView):
         serializer = SimpleTrackSerializer(tracks, many=True, context=context)
         return Response(serializer.data)
     
+@method_decorator(xframe_options_exempt, name='dispatch')
 class StreamAudioView(APIView):
-    permission_classes = [AllowAny]  
+    authentication_classes = [CustomTokenAuthentication]
+    permission_classes = [AllowAny]
     
     def get(self, request, track_id):
         try:
             track = Track.objects.get(id=track_id)
 
-            s3_key = track.uri
-            
+            if track.is_premium:
+                if not request.user or not request.user.is_authenticated:
+                    return Response({
+                        "error": "Yêu cầu đăng nhập để nghe bài hát premium."
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+                
+                # Kiểm tra xem người dùng có role 'premium'/'admin' HOẶC là superuser không
+                allowed_roles = ['premium', 'admin']
+                is_allowed_role = hasattr(request.user, 'role') and request.user.role in allowed_roles
+                is_superuser = hasattr(request.user, 'is_superuser') and request.user.is_superuser
+                
+                if not (is_allowed_role or is_superuser):
+                    return Response({
+                        "error": "Bạn cần nâng cấp tài khoản Premium hoặc là Quản trị viên để nghe bài hát này."
+                    }, status=status.HTTP_403_FORBIDDEN)
 
+            s3_key = track.audio_file
+            
             if '://' in s3_key:
                 s3_key = s3_key.split('://', 1)[1]
                 if '/' in s3_key:
                     s3_key = s3_key.split('/', 1)[1]
 
+            logger.info(f"Attempting to generate presigned URL for S3 key: {s3_key}")
             presigned_url = generate_presigned_url(
                 s3_key=s3_key,
                 expiration=3600
@@ -203,23 +224,44 @@ class StreamAudioView(APIView):
             
             if not presigned_url:
                 return Response({"error": "Could not generate streaming URL"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                
+            
+            # Xác định file_type từ S3 key
+            file_type = 'mp3' # Mặc định
+            if track.audio_file and isinstance(track.audio_file, str):
+                lower_uri = track.audio_file.lower()
+                if lower_uri.endswith('.mp4'):
+                    file_type = 'mp4'
+                elif lower_uri.endswith('.mp3'):
+                    file_type = 'mp3'
+                    
+            # --- Tạo presigned URL cho ảnh bìa track (nếu có) --- 
+            track_cover_presigned_url = None
+            if track.cover_image:
+                try:
+                    track_cover_presigned_url = generate_presigned_url(s3_key=track.cover_image, expiration=3600)
+                except Exception as e:
+                     logger.error(f"Error generating presigned URL for track cover {track.cover_image} in StreamAudioView: {e}")
+                     # Không cần dừng, sẽ fallback về ảnh album hoặc null
+
+            # --- Serialize artists --- 
+            artists_data = ArtistSerializer(track.artists.all(), many=True).data
+
             return Response({
                 "stream_url": presigned_url,
+                "file_type": file_type, 
                 "track_details": {
                     "id": track.id,
                     "title": track.title,
-                    "artist": ", ".join([artist.name for artist in track.artists.all()]),
+                    "artists": artists_data,
                     "album": track.album.title,
                     "duration_ms": track.duration_ms,
-                    "cover_image": track.album.cover_image_url if hasattr(track.album, 'cover_image_url') else None
+                    "track_cover_url": track_cover_presigned_url or (track.album.cover_image_url if hasattr(track.album, 'cover_image_url') else None)
                 }
             })
             
         except Track.DoesNotExist:
             return Response({"error": "Track not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            import traceback
             print(f"Error in StreamAudioView: {str(e)}")
             print(traceback.format_exc())
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -712,8 +754,7 @@ class ZaloPayView(APIView):
             
         except Exception as e:
             print(f"ZaloPay error: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            print(traceback.format_exc())
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
@@ -1065,7 +1106,6 @@ class BlockUser(APIView):
             
             return Response({"message": f"Người dùng {user_to_block.username} đã bị chặn"}, status=200)
         except Exception as e:
-            import traceback
             print(f"Error: {str(e)}")
             print(traceback.format_exc())
             return Response({"error": str(e)}, status=500)
@@ -1084,7 +1124,6 @@ class Unblock(APIView):
             
             return Response({"message": f"Người dùng {user_to_unblock.username} đã được mở khóa"}, status=200)
         except Exception as e:
-            import traceback
             print(f"Error: {str(e)}")
             print(traceback.format_exc())
             return Response({"error": str(e)}, status=500)
@@ -1152,7 +1191,6 @@ class CreateUserView(APIView):
             }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
-            import traceback
             print(f"Error creating user: {str(e)}")
             print(traceback.format_exc())
             return Response({
@@ -1241,7 +1279,6 @@ class UpdateUserView(APIView):
                 "detail": f"Không tìm thấy người dùng với ID {user_id}"
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            import traceback
             print(f"Error updating user: {str(e)}")
             print(traceback.format_exc())
             return Response({
@@ -1249,127 +1286,178 @@ class UpdateUserView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class TrackListView(APIView):
-   
     permission_classes = [AllowAny]
-    
+
     def get(self, request):
         try:
             tracks = Track.objects.all().select_related('album').prefetch_related('artists')
             
-            result = []
-            for track in tracks:
-                artists = track.artists.all()
-                artist_names = [artist.name for artist in artists]
+            # <<< Sử dụng SimpleTrackSerializer >>>
+            context = {'request': request} # Cần context nếu user đăng nhập để check like
+            if request.user and request.user.is_authenticated:
+                liked_track_ids = UserLikedTrack.objects.filter(
+                    user=request.user, 
+                    track_id__in=[t.id for t in tracks]
+                ).values_list('track_id', flat=True)
+                context['liked_track_ids'] = liked_track_ids
                 
-                track_data = {
-                    'id': track.id,
-                    'title': track.title,
-                    'uri': track.uri,
-                    'duration_ms': track.duration_ms,
-                    'track_number': track.track_number,
-                    'disc_number': track.disc_number,
-                    'explicit': track.explicit,
-                    'popularity': track.popularity,
-                    'spotify_id': track.spotify_id,
-                    'preview_url': track.preview_url,
-                    'created_at': track.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-                    'updated_at': track.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
-                    'album_id': track.album.id,
-                    'album_name': track.album.title,
-                    'artists': artist_names,
-                    'image': track.album.cover_image_url if hasattr(track.album, 'cover_image_url') else None
-                }
-                result.append(track_data)
-                
-            return Response(result)
-            
+            serializer = SimpleTrackSerializer(tracks, many=True, context=context)
+            return Response(serializer.data)
+
         except Exception as e:
-            import traceback
             print(f"Error fetching tracks: {str(e)}")
             print(traceback.format_exc())
             return Response({
                 "detail": f"Lỗi khi lấy danh sách tracks: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
 class AddTrackView(APIView):
-    """
-    """
     permission_classes = [AllowAny]  
     
     def post(self, request):
         try:
+            # --- Lấy dữ liệu và files --- 
             title = request.data.get('title')
             album_id = request.data.get('album')
-            audio_file = request.FILES.get('audio_file')
             duration_ms = request.data.get('duration_ms')
-            track_number = request.data.get('track_number', 1)
+            genre_ids = request.data.getlist('genres') 
+            artist_ids = request.data.getlist('artists') or [1] 
+            
+            audio_file = request.FILES.get('audio_file')
+            cover_image = request.FILES.get('cover_image') 
+            
+            track_number = request.data.get('track_number', 1) 
             disc_number = request.data.get('disc_number', 1)
             explicit = request.data.get('explicit', False)
             popularity = request.data.get('popularity', 50)
+            is_premium = request.data.get('is_premium', False)
+
+            # --- Validation dữ liệu cơ bản --- 
+            if not title or not album_id or not audio_file or not duration_ms:
+                return Response({"detail": "Tên, album, file nhạc và thời lượng là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
             
-            if not title or not album_id or not audio_file:
-                return Response({
-                    "detail": "Tên bài hát, album và file MP3 là bắt buộc"
-                }, status=status.HTTP_400_BAD_REQUEST)
-            
+            # --- Lấy Album TRƯỚC khi xử lý S3 --- 
             try:
                 album = Album.objects.get(id=album_id)
             except Album.DoesNotExist:
-                return Response({
-                    "detail": f"Không tìm thấy album với ID {album_id}"
-                }, status=status.HTTP_404_NOT_FOUND)
+                logger.warning(f"Thêm track thất bại: Không tìm thấy album ID {album_id}")
+                return Response({"detail": f"Không tìm thấy album với ID {album_id}"}, status=status.HTTP_404_NOT_FOUND)
+            except ValueError:
+                 logger.warning(f"Thêm track thất bại: ID Album không hợp lệ {album_id}")
+                 return Response({"detail": "ID Album không hợp lệ."}, status=status.HTTP_400_BAD_REQUEST)
             
+            # --- Validation loại tệp --- 
+            allowed_audio_types = ['audio/mpeg', 'video/mp4'] # MP3, MP4
+            if audio_file.content_type not in allowed_audio_types:
+                return Response({"detail": f"Loại file nhạc không hợp lệ. Chỉ chấp nhận MP3, MP4. (Nhận được: {audio_file.content_type})"}, status=status.HTTP_400_BAD_REQUEST)
+
+            if cover_image:
+                allowed_image_types = ['image/jpeg', 'image/png'] # JPG, PNG
+                if cover_image.content_type not in allowed_image_types:
+                    return Response({"detail": f"Loại file ảnh bìa không hợp lệ. Chỉ chấp nhận JPG, PNG. (Nhận được: {cover_image.content_type})"}, status=status.HTTP_400_BAD_REQUEST)
             
-            
-            UPLOAD_DIR = os.path.join(settings.MEDIA_ROOT, 'mp3')
-            if not os.path.exists(UPLOAD_DIR):
-                os.makedirs(UPLOAD_DIR)
-            
-            safe_title = "".join([c if c.isalnum() else "-" for c in title])
-            filename = f"{safe_title}-{int(datetime.now().timestamp())}.mp3"
-            file_path = os.path.join(UPLOAD_DIR, filename)
-            
-            with open(file_path, 'wb+') as destination:
-                for chunk in audio_file.chunks():
-                    destination.write(chunk)
-            
-            track = Track.objects.create(
+            # --- Khởi tạo Boto3 S3 client --- 
+            try:
+                s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                    region_name=settings.AWS_S3_REGION_NAME 
+                )
+                bucket_name = settings.AWS_STORAGE_BUCKET_NAME
+            except AttributeError as e:
+                 logger.error(f"Thiếu cài đặt AWS trong settings: {e}")
+                 return Response({"detail": "Lỗi cấu hình máy chủ (AWS)."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # --- Xử lý Upload Audio File lên S3 --- 
+            audio_extension = 'mp4' if audio_file.content_type == 'video/mp4' else 'mp3'
+            audio_s3_key = f"tracks/{uuid.uuid4()}.{audio_extension}"
+            try:
+                logger.info(f"Đang upload audio lên S3: Key={audio_s3_key}, Bucket={bucket_name}") # <<< Thêm log
+                s3_client.upload_fileobj(
+                    audio_file, 
+                    bucket_name,
+                    audio_s3_key,
+                    ExtraArgs={'ContentType': audio_file.content_type} 
+                )
+                logger.info(f"Upload audio thành công: Key={audio_s3_key}") # <<< Thêm log
+            except Exception as e:
+                logger.error(f"Lỗi upload audio lên S3: {e}")
+                logger.error(traceback.format_exc()) # <<< Log full traceback
+                return Response({"detail": "Lỗi upload file nhạc lên server."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # --- Xử lý Upload Cover Image lên S3 (nếu có) --- 
+            cover_s3_key = None
+            if cover_image:
+                image_extension = 'png' if cover_image.content_type == 'image/png' else 'jpg'
+                cover_s3_key = f"track_covers/{uuid.uuid4()}.{image_extension}"
+                try:
+                    logger.info(f"Đang upload ảnh bìa lên S3: Key={cover_s3_key}, Bucket={bucket_name}") # <<< Thêm log
+                    s3_client.upload_fileobj(
+                        cover_image,
+                        bucket_name,
+                        cover_s3_key,
+                        ExtraArgs={'ContentType': cover_image.content_type}
+                    )
+                    logger.info(f"Upload ảnh bìa thành công: Key={cover_s3_key}") # <<< Thêm log
+                except Exception as e:
+                    logger.error(f"Lỗi upload ảnh bìa lên S3: {e}")
+                    logger.error(traceback.format_exc()) # <<< Log full traceback
+                    cover_s3_key = None 
+
+            # --- Tạo và lưu đối tượng Track với S3 Keys --- 
+            track = Track(
                 title=title,
                 album=album,
-                uri=f"mp3/{filename}",
-                duration_ms=duration_ms,
+                duration_ms=int(duration_ms) if duration_ms else 0,
+                audio_file=audio_s3_key,     # <<< Sửa từ uri sang audio_file
+                cover_image=cover_s3_key,    
                 track_number=track_number,
                 disc_number=disc_number,
                 explicit=explicit,
-                popularity=popularity
+                popularity=popularity,
+                is_premium=is_premium
             )
-            
-            # Thêm nghệ sĩ (mặc định là ID 1)
-            artist_ids = request.data.getlist('artists') or [1]
-            for artist_id in artist_ids:
+            track.save() 
+
+            # --- Gán Artists và Genres --- 
+            try:
+                valid_artist_ids = [int(aid) for aid in artist_ids]
+                artists = Artist.objects.filter(id__in=valid_artist_ids)
+                track.artists.set(artists)
+            except (ValueError, TypeError):
+                 print(f"Lỗi khi xử lý artist IDs: {artist_ids}") # Log lỗi
+            except Artist.DoesNotExist:
+                 print(f"Một số artist ID không tồn tại: {artist_ids}") # Log lỗi
+
+            if genre_ids:
                 try:
-                    artist = Artist.objects.get(id=artist_id)
-                    track.artists.add(artist)
-                except Artist.DoesNotExist:
-                    # Bỏ qua nếu không tìm thấy nghệ sĩ
-                    pass
-            
-            return Response({
+                    valid_genre_ids = [int(gid) for gid in genre_ids]
+                    genres = Genre.objects.filter(id__in=valid_genre_ids)
+                    track.genres.set(genres)
+                except (ValueError, TypeError) as e:
+                    print(f"Lỗi khi xử lý genre IDs: {e}")
+                except Genre.DoesNotExist:
+                    print(f"Một số genre ID không tồn tại: {genre_ids}")
+
+            # --- Chuẩn bị và trả về Response --- 
+            response_data = {
                 "id": track.id,
                 "title": track.title,
                 "album": track.album.title,
-                "uri": track.uri,
-                "message": "Bài hát đã được thêm thành công"
-            }, status=status.HTTP_201_CREATED)
+                "audio_file_key": track.audio_file, 
+                "cover_image_key": track.cover_image, 
+                "duration_ms": track.duration_ms,
+                "message": "Bài hát đã được thêm thành công lên S3"
+            }
+            return Response(response_data, status=status.HTTP_201_CREATED)
             
         except Exception as e:
-            import traceback
-            print(f"Error adding track: {str(e)}")
+            print(f"Lỗi không xác định khi thêm track: {str(e)}")
             print(traceback.format_exc())
             return Response({
-                "detail": f"Lỗi khi thêm bài hát: {str(e)}"
+                "detail": f"Lỗi máy chủ nội bộ khi thêm bài hát."
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
 
 
 
@@ -1768,3 +1856,34 @@ class PublicPlaylistsView(APIView):
             # import traceback
             # logger.error(traceback.format_exc())
             return Response({"error": "Could not fetch public playlists"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Thêm view mới ở cuối file
+class AlbumListView(APIView):
+    permission_classes = [AllowAny] # Hoặc [IsAuthenticated] nếu cần
+
+    def get(self, request):
+        try:
+            albums = Album.objects.all().prefetch_related('artists') # Lấy tất cả albums
+            serializer = AlbumSerializer(albums, many=True, context={'request': request})
+            return Response(serializer.data)
+        except Exception as e:
+            print(f"Error fetching albums: {str(e)}")
+            print(traceback.format_exc())
+            return Response({
+                "detail": f"Lỗi khi lấy danh sách albums: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class GenreListView(APIView):
+    permission_classes = [AllowAny] # Hoặc [IsAuthenticated] nếu cần
+
+    def get(self, request):
+        try:
+            genres = Genre.objects.all().order_by('name') # Lấy tất cả genres, sắp xếp theo tên
+            serializer = GenreSerializer(genres, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            print(f"Error fetching genres: {str(e)}")
+            print(traceback.format_exc())
+            return Response({
+                "detail": f"Lỗi khi lấy danh sách thể loại: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

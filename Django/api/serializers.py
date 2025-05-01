@@ -4,6 +4,10 @@ from .models import (
     PlaylistTrack, UserLikedTrack, TrackPlay, Message, Conversation
 )
 from django.contrib.auth.hashers import make_password 
+from .utils.s3_utils import generate_presigned_url
+import logging # Import logging
+
+logger = logging.getLogger(__name__) # Get logger instance
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -54,13 +58,50 @@ class GenreSerializer(serializers.ModelSerializer):
 class SimpleTrackSerializer(serializers.ModelSerializer):
     artists = ArtistSerializer(many=True, read_only=True)
     is_liked = serializers.SerializerMethodField()
+    track_cover_url = serializers.SerializerMethodField()
     class Meta:
         model = Track
-        fields = ['id', 'title', 'artists', 'duration_ms', 'uri', 'popularity', 'is_liked']
+        fields = ['id', 'title', 'artists', 'duration_ms', 'popularity', 'is_liked', 'is_premium', 'track_cover_url']
 
     def get_is_liked(self, obj):
         liked_track_ids = self.context.get('liked_track_ids', [])
         return obj.id in liked_track_ids
+
+    def get_track_cover_url(self, obj):
+        logger.debug(f"Track ID {obj.id}: Checking cover_image field.") # DEBUG
+        s3_key = obj.cover_image
+        
+        if s3_key:
+            logger.debug(f"Track ID {obj.id}: Found cover_image key: {s3_key}") # DEBUG
+            try:
+                logger.debug(f"Track ID {obj.id}: Attempting generate_presigned_url for key: {s3_key}") # DEBUG
+                presigned_url = generate_presigned_url(s3_key=s3_key, expiration=3600)
+                logger.debug(f"Track ID {obj.id}: generate_presigned_url returned: {presigned_url}") # DEBUG
+                
+                if presigned_url:
+                    logger.debug(f"Track ID {obj.id}: Returning presigned URL: {presigned_url}") # DEBUG
+                    return presigned_url
+                else:
+                    logger.warning(f"Track ID {obj.id}: generate_presigned_url returned None for key: {s3_key}") # WARNING
+                    # Fall through if generate_presigned_url returns None
+
+            except Exception as e:
+                logger.error(f"Track ID {obj.id}: Error generating presigned URL for track cover {s3_key}: {e}", exc_info=True) # ERROR with traceback
+                # Fall through to return album cover or None
+                pass
+        else:
+             logger.debug(f"Track ID {obj.id}: cover_image field is empty or None.") # DEBUG
+        
+        # Fallback 1: Try to return the album's cover URL
+        logger.debug(f"Track ID {obj.id}: Falling back to album cover.") # DEBUG
+        if hasattr(obj, 'album') and obj.album and obj.album.cover_image_url:
+             album_url = obj.album.cover_image_url
+             logger.debug(f"Track ID {obj.id}: Returning album cover URL: {album_url}") # DEBUG
+             return album_url
+
+        # Fallback 2: Return None if neither exists
+        logger.debug(f"Track ID {obj.id}: No track or album cover found. Returning None.") # DEBUG
+        return None
 
 class AlbumSerializer(serializers.ModelSerializer):
     artists = ArtistSerializer(many=True, read_only=True)
@@ -81,9 +122,10 @@ class TrackSerializer(serializers.ModelSerializer):
     class Meta:
         model = Track
         fields = [
-            'id', 'title', 'artists', 'album', 'uri', 'duration_ms', 
+            'id', 'title', 'artists', 'album', 'duration_ms', 
             'track_number', 'disc_number', 'explicit', 'popularity',
-            'spotify_id', 'preview_url', 'genres'
+            'spotify_id', 'preview_url', 'genres', 'is_premium',
+            'audio_file', 'cover_image'
         ]
 
 class PlaylistSerializer(serializers.ModelSerializer):

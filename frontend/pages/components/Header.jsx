@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import LeftArrow from "../../images/commonicons/leftarrow.svg";
 import RightArrow from "../../images/commonicons/rightarrow.svg";
 import DummyProfile from "../../images/commonimages/dummyprofile.jpeg";
@@ -36,7 +36,10 @@ import {
   ListItem,
   Link,
   Divider,
-  Icon
+  Icon,
+  Heading,
+  Image as ChakraImage,
+  IconButton
 } from "@chakra-ui/react";
 import { TriangleDownIcon, MusicNoteIcon, BellIcon } from "@chakra-ui/icons";
 import SearchIconBlack from "../../images/commonicons/searchiconblack.svg";
@@ -48,6 +51,7 @@ import { useRecoilValue } from "recoil";
 import { searchValue } from "../../atoms/searchAtom";
 import { FaGoogle, FaMusic, FaPlay, FaPause, FaStar } from "react-icons/fa";
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { useTrack } from '../../context/TrackContext'
 
 
 const callApi = async () => {
@@ -72,15 +76,13 @@ function Header() {
   })
   const [randomTracks, setRandomTracks] = useState([]);
   const [isLoadingTracks, setIsLoadingTracks] = useState(false);
-  const [currentPlayingId, setCurrentPlayingId] = useState(null);
-  const audioRef = useRef(null);
+  const {
+    currentTrack,
+    isPlaying,
+    togglePlayPause,
+    playTrack: playTrackFromContext
+  } = useTrack()
 
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      audioRef.current = new Audio();
-    }
-  }, []);
 
   const { isOpen, onOpen, onClose } = useDisclosure()
   const {
@@ -146,37 +148,11 @@ function Header() {
   };
 
 
-  const playTrackFromHeader = async (trackId) => {
-
-    if (!audioRef.current) return;
-
-    try {
-
-      if (currentPlayingId === trackId && !audioRef.current.paused) {
-        audioRef.current.pause();
-        setCurrentPlayingId(null);
-        return;
-      }
-
-
-      audioRef.current.pause();
-
-
-      const response = await fetch(`http://localhost:8000/api/stream/${trackId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch stream URL');
-      }
-
-      const data = await response.json();
-
-
-      audioRef.current.src = data.stream_url;
-      audioRef.current.play();
-      setCurrentPlayingId(trackId);
-
-    } catch (error) {
-      console.error('Error playing track:', error);
-      alert('Error playing track. Please try again.');
+  const handlePlayPauseClick = (trackId) => {
+    if (currentTrack?.id === trackId) {
+      togglePlayPause(); // Toggle if it's the current track
+    } else {
+      playTrackFromContext(trackId); // Play new track using context
     }
   };
 
@@ -497,7 +473,6 @@ function Header() {
       </div>
 
       <div className="flex items-center absolute right-8">
-        {console.log('Header State before Menu Render:', { isLoggedIn, userData })}
         {isLoggedIn ? (
 
           <Menu>
@@ -763,24 +738,28 @@ function Header() {
               <Text>Loading...</Text>
             ) : (
               <List spacing={3}>
-                {randomTracks.map((track) => (
-                  <ListItem key={track.id} display="flex" justifyContent="space-between" alignItems="center">
-                    <Text>
-                      <b>{track.title}</b> - {track.artists && track.artists.length > 0 ? track.artists[0].name : "Unknown Artist"}
-                      <Text fontSize="sm" color="gray.500">
-                        {formatDuration(track.duration_ms)}
+                {randomTracks.map((track) => {
+                  const isCurrent = currentTrack?.id === track.id;
+                  const isThisPlaying = isCurrent && isPlaying;
+                  return (
+                    <ListItem key={track.id} display="flex" justifyContent="space-between" alignItems="center">
+                      <Text>
+                        <b>{track.title}</b> - {track.artists && track.artists.length > 0 ? track.artists[0].name : "Unknown Artist"}
+                        <Text fontSize="sm" color="gray.500">
+                          {formatDuration(track.duration_ms)}
+                        </Text>
                       </Text>
-                    </Text>
-                    <Button
-                      colorScheme="green"
-                      size="sm"
-                      onClick={() => playTrackFromHeader(track.id)}
-                      leftIcon={currentPlayingId === track.id ? <Icon as={FaPause} /> : <Icon as={FaPlay} />}
-                    >
-                      {currentPlayingId === track.id ? 'Pause' : 'Play'}
-                    </Button>
-                  </ListItem>
-                ))}
+                      <Button
+                        colorScheme="green"
+                        size="sm"
+                        onClick={() => handlePlayPauseClick(track.id)}
+                        leftIcon={isThisPlaying ? <Icon as={FaPause} /> : <Icon as={FaPlay} />}
+                      >
+                        {isThisPlaying ? 'Pause' : 'Play'}
+                      </Button>
+                    </ListItem>
+                  );
+                })}
               </List>
             )}
           </PopoverBody>

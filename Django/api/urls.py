@@ -37,7 +37,9 @@ from .views import (
     PlaylistDetailView,
     PlaylistRemoveTrackView,
     RecommendedTracksView,
-    PublicPlaylistsView
+    PublicPlaylistsView,
+    AlbumListView,
+    GenreListView
 )
 router = DefaultRouter()
 router.register('users', UserViewSet)
@@ -66,6 +68,8 @@ urlpatterns = [
     path('userz/update/<int:user_id>/', UpdateUserView.as_view(), name='update-user'),  
     path('tracks/list/', TrackListView.as_view(), name='tracks-list'),
     path('tracks/add/', AddTrackView.as_view(), name='add-track'),
+    path('albums/list/', AlbumListView.as_view(), name='album-list'),
+    path('genres/list/', GenreListView.as_view(), name='genre-list'),
     path('zalopay/', ZaloPayView.as_view(), name='zalopay'),
     path('verify-payment/', views.VerifyPaymentView.as_view(), name='verify-payment'),
     path('user-profile/', views.UserProfileView.as_view(), name='user-profile'),

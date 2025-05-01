@@ -78,7 +78,8 @@ class Track(models.Model):
     title = models.CharField(max_length=255)
     artists = models.ManyToManyField(Artist, related_name='tracks')
     album = models.ForeignKey(Album, on_delete=models.CASCADE, related_name='tracks')
-    uri = models.URLField(help_text="URI đến file MP3 trên AWS S3")
+    audio_file = models.CharField(max_length=1024, help_text="S3 key cho file nhạc MP3/MP4")
+    cover_image = models.CharField(max_length=1024, blank=True, null=True, help_text="S3 key cho ảnh bìa (JPG, PNG)")
     duration_ms = models.IntegerField()
     track_number = models.IntegerField()
     disc_number = models.IntegerField(default=1)
@@ -87,6 +88,7 @@ class Track(models.Model):
     spotify_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
     preview_url = models.URLField(blank=True, null=True)
     genres = models.ManyToManyField(Genre, related_name='tracks', blank=True)
+    is_premium = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

@@ -30,7 +30,7 @@ function SideNav() {
       
       if (response.ok) {
         const data = await response.json();
-        setPlaylists(formattedPlaylists);
+        setPlaylists(data);
       }
     } catch (error) {
       console.error("Error fetching playlists:", error);

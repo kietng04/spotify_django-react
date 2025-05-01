@@ -8,6 +8,6 @@ module.exports = nextConfig
 
 module.exports = {
   images: {
-    domains: ['localhost'],
+    domains: ['localhost', 'ptpmmnmspotify.s3.amazonaws.com'],
   },
 }

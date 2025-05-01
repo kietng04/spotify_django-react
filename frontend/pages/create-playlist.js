@@ -70,7 +70,7 @@ export default function CreatePlaylist() {
         const token = userData?.token;
 
         const response = await fetch(
-          "http://localhost:8000/api/random-tracks/",
+          "http://localhost:8000/api/tracks/list/",
           {
             headers: {
               Authorization: token ? `Token ${token}` : "",
@@ -607,10 +607,11 @@ export default function CreatePlaylist() {
                       <Flex alignItems="center">
                         <Box mr={4}>
                           <Image
-                            src={track.album?.cover_image_url || DummyTrack}
+                            src={track.track_cover_url || track.album?.cover_image_url || DummyTrack.src}
                             alt={track.title}
                             width={50}
                             height={50}
+                            style={{ objectFit: 'cover' }}
                           />
                         </Box>
                         <Box>

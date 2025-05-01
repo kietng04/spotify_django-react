@@ -80,6 +80,7 @@ function PlaylistSection() {
     currentTrack,
     isPlaying,
     togglePlayPause,
+    playTrack: playTrackContext,
   } = useTrack();
 
   useEffect(() => {
@@ -278,18 +279,19 @@ function PlaylistSection() {
     const tracks = playlistTracks.map((item) => item.track);
     setTrackQueue(tracks);
     setCurrentIndex(index);
-    setCurrentTrack(track);
-    setIsPlaying(true);
+    playTrackContext(track.id);
     setCurrentPlayingId(track.id);
   };
 
   const playAllTracks = () => {
-    if (!playlistTracks.length) return;
-    const tracks = playlistTracks.map((item) => item.track);
-    setTrackQueue(tracks);
-    setCurrentIndex(0);
-    setCurrentTrack(tracks[0]);
-    setIsPlaying(true);
+    if (playlistTracks.length > 0) {
+      const tracks = playlistTracks.map((item) => item.track);
+      setTrackQueue(tracks);
+      setCurrentIndex(0);
+      playTrackContext(tracks[0].id);
+    } else {
+      console.log("Playlist is empty, cannot play.");
+    }
   };
 
   const handleSearchChange = (e) => {
@@ -940,108 +942,6 @@ function PlaylistSection() {
           </ModalBody>
         </ModalContent>
       </Modal>
-
-      {/* Add Songs Section */}
-      <div className="px-10 pr-16 mb-6 pt-8 mt-4 border-t border-[#2B2A2B] bg-[#121313]">
-        <h2 className="text-white text-lg font-bold mb-4">Add More Songs</h2>
-        <InputGroup width="300px" mb={4} position="relative" zIndex="10">
-          <Input
-            placeholder="Search for songs"
-            value={searchQuery}
-            onChange={handleSearchChange}
-            bg="#282828"
-            color="white"
-            border="none"
-            _focus={{ border: "1px solid #1DB954" }}
-            _hover={{ bg: "#3E3E3E" }}
-            position="relative"
-          />
-          <InputRightElement>
-            {searchQuery ? (
-              <IconButton
-                icon={<CloseIcon />}
-                size="sm"
-                variant="ghost"
-                color="gray.400"
-                onClick={clearSearch}
-                aria-label="Clear search"
-                zIndex="11"
-              />
-            ) : (
-              <Search2Icon color="gray.400" />
-            )}
-          </InputRightElement>
-        </InputGroup>
-
-        {/* Search Results */}
-        <div className="w-full max-h-60 overflow-y-auto mb-6 custom-scrollbar">
-          {isSearching ? (
-            <div className="text-gray-300">Searching...</div>
-          ) : filteredTracks.length > 0 ? (
-            filteredTracks.slice(0, 5).map((track) => (
-              <div
-                key={`search-${track.id}`}
-                className="flex items-center bg-[#181818] hover:bg-[#282828] p-2 rounded-md mb-2"
-              >
-                <div className="w-10 h-10 flex-shrink-0 mr-3 overflow-hidden">
-                  <Image
-                    src={
-                      track.album?.cover_image_url
-                        ? track.album.cover_image_url.startsWith("http")
-                          ? track.album.cover_image_url
-                          : `http://localhost:8000${track.album.cover_image_url}`
-                        : DummyMusicThumb.src
-                    }
-                    alt={track.title}
-                    width={40}
-                    height={40}
-                    className="object-cover"
-                    unoptimized={true}
-                  />
-                </div>
-                <div className="flex-grow mr-3">
-                  <div className="text-white text-sm font-medium truncate">
-                    {track.title}
-                  </div>
-                  <div className="text-gray-400 text-xs truncate">
-                    {track.artists &&
-                      track.artists.map((artist, i) => (
-                        <React.Fragment key={i}>
-                          {artist.name}
-                          {i < track.artists.length - 1 && ", "}
-                        </React.Fragment>
-                      ))}
-                    {track.album && ` • ${track.album.title}`}
-                  </div>
-                </div>
-                <div className="flex-shrink-0">
-                  <IconButton
-                    icon={
-                      isTrackInPlaylist(track.id) ? <HiCheck /> : <HiPlus />
-                    }
-                    colorScheme={isTrackInPlaylist(track.id) ? "green" : "gray"}
-                    variant="ghost"
-                    onClick={() => addTrackToPlaylist(track)}
-                    disabled={isTrackInPlaylist(track.id)}
-                    aria-label={isTrackInPlaylist(track.id) ? "Added" : "Add"}
-                    title={
-                      isTrackInPlaylist(track.id)
-                        ? "Already in playlist"
-                        : "Add to playlist"
-                    }
-                  />
-                </div>
-              </div>
-            ))
-          ) : searchQuery ? (
-            <div className="text-gray-300">No tracks found</div>
-          ) : (
-            <div className="text-gray-300">
-              Start typing to search for tracks
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

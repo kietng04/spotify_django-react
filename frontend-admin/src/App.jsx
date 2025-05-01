@@ -4,6 +4,7 @@ import { useDispatch } from 'react-redux';
 import { login, logout } from './store/slices/authenticationSlice.jsx';
 import AppRoutes from './Routes.jsx';
 import './styles/style.min.css'
+import './styles/globalOverrides.css';
 
 // Tạo một component nội bộ để sử dụng các hook của Router
 const AppContent = () => {
