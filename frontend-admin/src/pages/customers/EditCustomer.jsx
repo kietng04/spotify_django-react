@@ -39,43 +39,72 @@ const EditCustomer = () => {
 
   useEffect(() => {
     const fetchUserData = async () => {
+      // Get token first
+      const token = localStorage.getItem("adminAuthToken");
+      if (!token) {
+        console.error("Authentication token not found. Cannot fetch user details.");
+        setErrorMessage("User not authenticated for admin panel."); 
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
-        const response = await fetch(`http://localhost:8000/api/userz/list/`);
-
-        if (response.ok) {
-          const users = await response.json();
-          const user = users.find((user) => user.id.toString() === customerId);
-
-          if (user) {
-            setFields({
-              username: user.username || "",
-              email: user.email || "",
-              first_name: user.name.split(" ")[0] || "",
-              last_name: user.name.split(" ").slice(1).join(" ") || "",
-              password: "",
-              password_confirm: "",
-              is_superuser:
-                user.is_superuser === true || user.is_superuser === 1,
-              is_staff: user.is_staff === true || user.is_staff === 1,
-              is_active: user.status === "Active",
-              avatarImg: user.image || "",
-              role: user.role || "user",
-            });
-          } else {
-            setErrorMessage("Không tìm thấy người dùng");
+        setErrorMessage(""); // Clear previous errors
+        
+        // Call the new detail endpoint
+        const response = await fetch(`http://localhost:8000/api/userz/detail/${customerId}/`, {
+          headers: {
+            'Authorization': `Token ${token}`,
           }
-        } else {
-          setErrorMessage("Không thể lấy thông tin người dùng");
+        });
+
+        if (response.status === 404) {
+            setErrorMessage("Không tìm thấy người dùng với ID này.");
+            setIsLoading(false);
+            return;
+        } 
+        if (response.status === 401 || response.status === 403) {
+          setErrorMessage("Authorization failed. Please log in again or check permissions.");
+          setIsLoading(false);
+          return;
         }
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error("API Error:", response.status, errorData);
+          throw new Error(`Failed to fetch user data: ${response.status}`);
+        }
+
+        const user = await response.json();
+
+        // Set fields based on the direct user object
+        setFields({
+          username: user.username || "",
+          email: user.email || "",
+          first_name: user.first_name || "", 
+          last_name: user.last_name || "", 
+          password: "", // Keep password fields empty on load
+          password_confirm: "",
+          is_superuser: user.is_superuser || false,
+          is_staff: user.is_staff || false,
+          is_active: user.is_active === undefined ? true : user.is_active, // Default to true if undefined
+          // Use avatar_url from the modified serializer
+          avatarImg: user.avatar_url || "", 
+          role: user.role || "user",
+        });
+        
       } catch (error) {
-        setErrorMessage("Lỗi kết nối: " + error.message);
+        console.error("Error fetching user data:", error);
+        setErrorMessage("Lỗi kết nối hoặc xử lý dữ liệu: " + error.message);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchUserData();
+    if (customerId) { // Ensure customerId is available
+        fetchUserData();
+    }
+
   }, [customerId]);
 
   const handleInputChange = (key, value) => {

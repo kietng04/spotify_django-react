@@ -107,13 +107,11 @@ function PlaylistSection() {
               },
             }
           );
-
           if (response.ok) {
             const data = await response.json();
             trackLikeStatus[trackId] = data.is_liked;
           }
         }
-
         setLikedTracks(trackLikeStatus);
       } catch (error) {
         console.error("Error checking liked tracks:", error);

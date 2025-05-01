@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import (
     MyUser, Artist, Genre, Album, Track, Playlist, 
-    PlaylistTrack, UserLikedTrack, TrackPlay, Message, Conversation
+    PlaylistTrack, UserLikedTrack, TrackPlay, Message, Conversation,
+    PremiumPayment 
 )
 from django.contrib.auth.hashers import make_password 
 from .utils.s3_utils import generate_presigned_url
@@ -201,3 +202,11 @@ class ConversationSerializer(serializers.ModelSerializer):
             if other_user:
                 return UserSerializer(other_user).data
         return None
+
+class PremiumPaymentSerializer(serializers.ModelSerializer):
+    user = serializers.ReadOnlyField(source='user.username') 
+    purchase_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+
+    class Meta:
+        model = PremiumPayment
+        fields = ['id', 'order_id', 'user', 'purchase_date']

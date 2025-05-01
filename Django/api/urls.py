@@ -38,8 +38,14 @@ from .views import (
     PlaylistRemoveTrackView,
     RecommendedTracksView,
     PublicPlaylistsView,
+    PremiumPaymentListView,
+    ArtistListView,
+    ArtistDetailView,
+    GenreListView,
+    GenreDetailView,
+    GenreCreateView,
     AlbumListView,
-    GenreListView
+    UserDetailView
 )
 router = DefaultRouter()
 router.register('users', UserViewSet)
@@ -83,5 +89,14 @@ urlpatterns = [
     path('playlist/<int:playlist_id>/remove-track/', views.PlaylistRemoveTrackView.as_view(), name='playlist-remove-track'),
     path('recommended-tracks/', RecommendedTracksView.as_view(), name='recommended-tracks'),
     path('public-playlists/', PublicPlaylistsView.as_view(), name='public-playlists'),
+    path('premium-payments/', views.PremiumPaymentListView.as_view(), name='premium-payments-list'),
+    path('albums/list/', views.AlbumListView.as_view(), name='albums-list'),
+    path('userz/detail/<int:id>/', views.UserDetailView.as_view(), name='user-detail'),
+    path('artists/', ArtistListView.as_view()),
+    path('artists/list/', ArtistListView.as_view()),
+    path('artists/<int:artist_id>/', ArtistDetailView.as_view()),
+    path('genres/list/', GenreListView.as_view()),
+    path('genres/<int:genre_id>/', GenreDetailView.as_view()),
+    path('genres/', GenreCreateView.as_view()),
 ]
 

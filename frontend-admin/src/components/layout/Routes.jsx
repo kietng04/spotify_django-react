@@ -1,18 +1,3 @@
-// // General
-// import NotFound from "../../pages/error/NotFound"; // Commented out
-// import Dashboard from "../../pages/dashboard/Overview"; // Commented out
-
-// // Media
-// import Media from "../../pages/media/Media.jsx"; // Commented out
-
-// // Settings
-// import Api from "../../pages/settings/Api"; // Commented out
-// import Email from "../../pages/settings/Email"; // Commented out
-// import General from "../../pages/settings/General"; // Commented out
-// import CronJob from "../../pages/settings/CronJob"; // Commented out
-// import Permalink from "../../pages/settings/Permalink"; // Commented out
-// import Languages from "../../pages/settings/Languages"; // Commented out
-// import SocialLogin from "../../pages/settings/SocialLogin"; // Commented out
 
 // Products (Keep these)
 import Attribute from "../../pages/products/Attribute";
@@ -20,20 +5,14 @@ import AddProduct from "../../pages/products/AddProduct";
 import EditProduct from "../../pages/products/EditProduct";
 import ManageProduct from "../../pages/products/ManageProduct";
 
-// // Orders (Commented out)
-// import AddOrder from "../../pages/orders/AddOrder";
-// import ManageOrder from "../../pages/orders/ManageOrder";
-// import OrderDetail from "../../pages/orders/OrderDetail";
-
-// // brand (Commented out)
-// import AddBrand from "../../pages/brands/AddBrand";
-// import ManageBrand from "../../pages/brands/ManageBrand";
-// import EditBrand from "../../pages/brands/EditBrand";
 
 // Customer (Keep these)
 import AddCustomer from "../../pages/customers/AddCustomer";
 import EditCustomer from "../../pages/customers/EditCustomer";
 import ManageUser from "../../pages/customers/ManageUser.jsx";
+
+
+
 
 // // Users (Assume related to Customers, keep for now - can be removed if unused)
 // import AddUser from "../../pages/users/AddUser";
@@ -122,6 +101,20 @@ const routes = [
     path: "/users/edit/:userId", // Đổi path và param
     element: <EditCustomer />, // Giữ nguyên component EditCustomer nếu file EditCustomer.jsx chưa đổi tên
   },
+  {
+    path: "/users/add", // Đổi path
+    element: <AddCustomer />, // Giữ nguyên component AddCustomer nếu file AddCustomer.jsx chưa đổi tên
+  },
+  {
+    path: "/users/manage", // Đổi path
+    element: <ManageUser />, // Component đã đúng
+  },
+  {
+    path: "/users/edit/:userId", // Đổi path và param
+    element: <EditCustomer />, // Giữ nguyên component EditCustomer nếu file EditCustomer.jsx chưa đổi tên
+  },
+  
+  
   // brand (Commented out)
   // {
   //   path: "/brands/add",
